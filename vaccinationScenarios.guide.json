@@ -1,0 +1,288 @@
+{
+  "name": "Vaccination Scenarios",
+  "description": "A set of scenarios used for comparing different vaccination schedules.",
+  "output_folder": "./results/",
+  "middle_joint": "-vacTest",
+  "community_used": [
+    "newcastle"
+  ],
+  "shared_overrides": {
+    "parameters": {
+      "Command_Argument": {
+        "n_runs": 24,
+        "n_cycles": 720
+      },
+      "Scenario_Strain": [
+        {
+          "StrainId": 0,
+          "Beta": 0.18
+        }
+      ],
+      "Scenario_Parameter": {
+        "withdrawal_increase_trigger": "timed",
+        "withdrawal_increase_delay": 28,
+        "bcc_reduction": 0.2,
+        "bcc_reduction_delay": 28,
+        "vaccination_trigger": "timed",
+        "vaccination_delay": 3,
+        "vaccination_duration": 720,
+        "prob_withdrawal": 0.5,
+        "prob_school_withdrawal": 0.9
+      },
+      "Scenario_VaccineCoverage": [
+        {
+          "Age": "infant",
+          "Target": 0.113
+        },
+        {
+          "Age": "young_child",
+          "Target": 0.08
+        },
+        {
+          "Age": "child",
+          "Target": 0.066
+        },
+        {
+          "Age": "adolescent",
+          "Target": 0.097
+        },
+        {
+          "Age": "young_adult",
+          "Target": 0.294
+        },
+        {
+          "Age": "adult",
+          "Target": 0.294
+        },
+        {
+          "Age": "older_adult",
+          "Target": 0.294
+        },
+        {
+          "Age": "senior",
+          "Target": 0.662
+        },
+        {
+          "Age": "older_senior",
+          "Target": 0.708
+        }
+      ],
+      "Scenario_VaccineDose": [
+        {
+          "DoseType": "primary",
+          "Count": 1
+        }
+      ],
+      "Scenario_VaccineDoseEfficacy": [
+        {
+          "DoseType": "primary",
+          "Age": null,
+          "Efficacy": [0.54]
+        }
+      ]
+    }
+  },
+  "simulation_sets": [
+    {
+      "name": "Comparison of Vaccination Scenarios",
+      "version": 425,
+      "simulations": [
+        {
+          "name": "No Vaccination"
+        },
+        {
+          "name": "Young Children 20%",
+          "override_setting": {
+            "parameters": {
+              "Scenario_VaccineCoverage": [
+                {
+                  "Age": "infant",
+                  "Target": 0.2
+                },
+                {
+                  "Age": "young_child",
+                  "Target": 0.2
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Young Children 30%",
+          "override_setting": {
+            "parameters": {
+              "Scenario_VaccineCoverage": [
+                {
+                  "Age": "infant",
+                  "Target": 0.3
+                },
+                {
+                  "Age": "young_child",
+                  "Target": 0.3
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Young Children 40%",
+          "override_setting": {
+            "parameters": {
+              "Scenario_VaccineCoverage": [
+                {
+                  "Age": "infant",
+                  "Target": 0.4
+                },
+                {
+                  "Age": "young_child",
+                  "Target": 0.4
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "School Children 20%",
+          "override_setting": {
+            "parameters": {
+              "Scenario_VaccineCoverage": [
+                {
+                  "Age": "child",
+                  "Target": 0.2
+                },
+                {
+                  "Age": "adolescent",
+                  "Target": 0.2
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "School Children 30%",
+          "override_setting": {
+            "parameters": {
+              "Scenario_VaccineCoverage": [
+                {
+                  "Age": "child",
+                  "Target": 0.3
+                },
+                {
+                  "Age": "adolescent",
+                  "Target": 0.3
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "School Children 40%",
+          "override_setting": {
+            "parameters": {
+              "Scenario_VaccineCoverage": [
+                {
+                  "Age": "child",
+                  "Target": 0.4
+                },
+                {
+                  "Age": "adolescent",
+                  "Target": 0.4
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "All +10%",
+          "override_setting": {
+            "parameters": {
+              "Scenario_VaccineCoverage": [
+                {
+                  "Age": "infant",
+                  "Target": 0.213
+                },
+                {
+                  "Age": "young_child",
+                  "Target": 0.18
+                },
+                {
+                  "Age": "child",
+                  "Target": 0.166
+                },
+                {
+                  "Age": "adolescent",
+                  "Target": 0.197
+                },
+                {
+                  "Age": "young_adult",
+                  "Target": 0.394
+                },
+                {
+                  "Age": "adult",
+                  "Target": 0.394
+                },
+                {
+                  "Age": "older_adult",
+                  "Target": 0.394
+                },
+                {
+                  "Age": "senior",
+                  "Target": 0.762
+                },
+                {
+                  "Age": "older_senior",
+                  "Target": 0.808
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "All +20%",
+          "override_setting": {
+            "parameters": {
+              "Scenario_VaccineCoverage": [
+                {
+                  "Age": "infant",
+                  "Target": 0.313
+                },
+                {
+                  "Age": "young_child",
+                  "Target": 0.28
+                },
+                {
+                  "Age": "child",
+                  "Target": 0.266
+                },
+                {
+                  "Age": "adolescent",
+                  "Target": 0.297
+                },
+                {
+                  "Age": "young_adult",
+                  "Target": 0.494
+                },
+                {
+                  "Age": "adult",
+                  "Target": 0.494
+                },
+                {
+                  "Age": "older_adult",
+                  "Target": 0.494
+                },
+                {
+                  "Age": "senior",
+                  "Target": 0.862
+                },
+                {
+                  "Age": "older_senior",
+                  "Target": 0.908
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
