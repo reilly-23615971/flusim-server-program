@@ -3,14 +3,14 @@
 # Defines structure of model configuration guide JSON files
 
 # Imports
+import logging
 from operator import attrgetter
 from typing import Annotated, Literal, Optional, Any, cast
 from annotated_types import Ge, Le
 from typing_extensions import Self
 from pydantic import (
-    BaseModel, ValidationError, ValidationInfo,
-    Field, model_validator, field_validator, 
-    InstanceOf
+    BaseModel, ValidationInfo,
+    Field, model_validator, field_validator
 )
 
 # Type Definitions
@@ -40,12 +40,12 @@ type EfficacyValue = Annotated[float, Ge(0), Le(1)]
 
 # Validation constants
 parameterCategories = {
-    'Scenario_CrossImmunity': ('FromStrainId', 'ToStrainId'), 
-    'Scenario_SeededNaturalImmunity': ('StrainId', 'Age'), 
-    'Scenario_Strain': ('StrainId'), 
-    'Scenario_VaccineCoverage': ('Age'), 
-    'Scenario_VaccineDose': ('DoseType'), 
-    'Scenario_VaccineDoseEfficacy': ('DoseType', 'Age')
+    'Scenario_CrossImmunity': ['FromStrainId', 'ToStrainId'], 
+    'Scenario_SeededNaturalImmunity': ['StrainId', 'Age'], 
+    'Scenario_Strain': ['StrainId'], 
+    'Scenario_VaccineCoverage': ['Age'], 
+    'Scenario_VaccineDose': ['DoseType'], 
+    'Scenario_VaccineDoseEfficacy': ['DoseType', 'Age']
 }
 parameterGetters = {
     'Scenario_CrossImmunity': attrgetter('FromStrainId', 'ToStrainId'), 
@@ -55,6 +55,7 @@ parameterGetters = {
     'Scenario_VaccineDose': attrgetter('DoseType'), 
     'Scenario_VaccineDoseEfficacy': attrgetter('DoseType', 'Age')
 }
+validationLog = logging.getLogger(__name__)
 
 
 
@@ -860,17 +861,23 @@ class vaccineEfficacy(BaseModel):
     # Efficacy should be list for primary and single value for booster
     @model_validator(mode = 'after')
     def efficacyValidation(self) -> Self:
-        if self.DoseType == 'primary' and not isinstance(self.Efficacy, list):
-            raise ValidationError((
-                'The efficacy in Scenario_VaccineDoseEfficacy '
-                'should be a list when the dose type is "primary".'
-            ))
-        elif self.DoseType == 'booster' and isinstance(self.Efficacy, list):
-            raise ValidationError(
-                'The efficacy in Scenario_VaccineDoseEfficacy should '
-                'be a single value when the dose type is "booster".'
+        try:
+            if self.DoseType == 'primary' and not isinstance(self.Efficacy, list):
+                raise ValueError((
+                    'The efficacy in Scenario_VaccineDoseEfficacy '
+                    'should be a list when the dose type is "primary".'
+                ))
+            elif self.DoseType == 'booster' and isinstance(self.Efficacy, list):
+                raise ValueError(
+                    'The efficacy in Scenario_VaccineDoseEfficacy should '
+                    'be a single value when the dose type is "booster".'
+                )
+            return self
+        except ValueError as e:
+            validationLog.error(
+                f'[vaccineEfficacy] Encountered {type(e).__name__}: {e}'
             )
-        return self
+            raise
 
 # Class for compiling all parameter types into one object
 class Parameters(BaseModel):
@@ -894,58 +901,44 @@ class Parameters(BaseModel):
     )
     # Note that the rest of the parameters are defined as lists of their
     # respective classes, not single objects
-    Scenario_CrossImmunity: Optional[
-        list[InstanceOf[crossImmunity]]
-    ] = Field(
+    Scenario_CrossImmunity: Optional[list[crossImmunity]] = Field(
         title = 'Cross Immunity Parameters', default = None, description = ((
             'Parameters controlling how an individual recovering from one '
             'infection strain can gain immunity to other infection strains.'
         ))
     )
-    Scenario_DynamicIntervention: Optional[
-        list[InstanceOf[dynamicIntervention]]
-    ] = Field(
+    Scenario_DynamicIntervention: Optional[list[dynamicIntervention]] = Field(
         title = 'Dynamic Intervention Parameters', default = None, 
         description = ((
             'Parameters whose values will change '
             'at specific points in the simulation.'
         ))
     )
-    Scenario_SeededNaturalImmunity: Optional[
-        list[InstanceOf[seededImmunity]]
-    ] = Field(
+    Scenario_SeededNaturalImmunity: Optional[list[seededImmunity]] = Field(
         title = 'Seeded Natural Immunity Parameters', default = None, 
         description = ((
             'Parameters controlling how individuals naturally gain immunity '
             'to the disease without requiring infection or vaccination.'
         ))
     )
-    Scenario_Strain: Optional[
-        list[InstanceOf[strainParameters]]
-    ] = Field(
+    Scenario_Strain: Optional[list[strainParameters]] = Field(
         title = 'Strain Parameters', default = None, description = ((
             'Parameters defining different strains of the '
             'infection to simulate in the same population.'
         ))
     )
-    Scenario_VaccineCoverage: Optional[
-        list[InstanceOf[vaccineCoverage]]
-    ] = Field(
+    Scenario_VaccineCoverage: Optional[list[vaccineCoverage]] = Field(
         title = 'Vaccine Coverage Parameters', default = None, description = (
             'Parameters defining how much of the population receives vaccines.'
         )
     )
-    Scenario_VaccineDose: Optional[
-        list[InstanceOf[vaccineDose]]
-    ] = Field(
+    Scenario_VaccineDose: Optional[list[vaccineDose]] = Field(
         title = 'Vaccine Dose Parameters', default = None, description = ((
             'Parameters defining how many doses of different vaccine types '
             'the population receives, and how often they are administered.'
         ))
     )
-    Scenario_VaccineDoseEfficacy: Optional[
-        list[InstanceOf[vaccineEfficacy]]
-    ] = Field(
+    Scenario_VaccineDoseEfficacy: Optional[list[vaccineEfficacy]] = Field(
         title = 'Vaccine Dose Efficacy Parameters', default = None, 
         description = (
             'Parameters defining the efficacy of different vaccine doses.'
@@ -977,38 +970,44 @@ class Parameters(BaseModel):
     def noDuplicateCategories(
         cls, value: Optional[list[Any]], info: ValidationInfo
     ) -> Optional[list[Any]]:
-        if value is None or info.field_name is None: return value
-        # Identify duplicates in relevant category properties
-        relevantCategories = parameterGetters[info.field_name]
-        configuredValues = [relevantCategories(item) for item in value]
-        duplicateValues = [
-            item for item in set(configuredValues) 
-            if configuredValues.count(item) > 1
-        ]
-        if not duplicateValues:
-            # Replace any None values for age with 
-            # 'All Ages' for clarity in error messages
-            if (
-                info.field_name == 'Scenario_SeededNaturalImmunity' 
-                or info.field_name == 'Scenario_VaccineDoseEfficacy'
-            ): clearValues = [
-                (first, 'All Ages' if second is None else second) 
-                for first, second in duplicateValues
+        try:
+            if value is None or info.field_name is None: return value
+            # Identify duplicates in relevant category properties
+            relevantCategories = parameterGetters[info.field_name]
+            configuredValues = [relevantCategories(item) for item in value]
+            duplicateValues = [
+                item for item in set(configuredValues) 
+                if configuredValues.count(item) > 1
             ]
-            else: clearValues = [
-                ('All Ages' if item is None else item) 
-                for item in duplicateValues
-            ]
-            raise ValidationError((
-                'The Flusim configuration file defined multiple '
-                f'{info.field_name} objects with the same values for the '
-                f'{' and '.join(parameterCategories[info.field_name])} '
-                'attribute(s), making it ambiguous which values apply '
-                f'to the following categories: {', '.join(clearValues)}. '
-                f'Ensure each {info.field_name} object has unique '
-                'values for these attributes.'
-            ))
-        return value
+            if duplicateValues:
+                # Replace any None values for age with 
+                # 'All Ages' for clarity in error messages
+                if (
+                    info.field_name == 'Scenario_SeededNaturalImmunity' 
+                    or info.field_name == 'Scenario_VaccineDoseEfficacy'
+                ): clearValues = [
+                    (first, 'All Ages' if second is None else second) 
+                    for first, second in duplicateValues
+                ]
+                else: clearValues = [
+                    ('All Ages' if item is None else item) 
+                    for item in duplicateValues
+                ]
+                raise AssertionError((
+                    'The Flusim configuration file defined multiple '
+                    f'{info.field_name} objects with the same values for the '
+                    f'{' and '.join(parameterCategories[info.field_name])} '
+                    'attribute(s), making it ambiguous which values apply '
+                    f'to the following categories: {', '.join(clearValues)}. '
+                    f'Ensure each {info.field_name} object has unique '
+                    'values for these attributes.'
+                ))
+            return value
+        except AssertionError as e:
+            validationLog.error(
+                f'[vaccineEfficacy] Encountered {type(e).__name__}: {e}'
+            )
+            raise
     
     # Ensure the right number of efficacies for primary vaccines are defined
     @model_validator(mode = 'after')
@@ -1026,7 +1025,7 @@ class Parameters(BaseModel):
                 len(cast(list[EfficacyValue], item.Efficacy)) != 
                 primaryDose.Count for item in primaryEfficacy
             ):
-                raise ValidationError((
+                raise ValueError((
                     'The efficacy list in Scenario_VaccineDoseEfficacy '
                     'should have a number of elements equal to the '
                     'count defined in Scenario_VaccineDose when '
@@ -1045,7 +1044,7 @@ class communityOverride(BaseModel):
             'The name of the community these parameters apply to.'
         )
     )
-    parameters: InstanceOf[Parameters] = Field(
+    parameters: Parameters = Field(
         title = 'Parameters', description = (
             'Parameters to modify for this community.'
         )
@@ -1068,7 +1067,7 @@ class overrideTemplate(BaseModel):
             'Additional information about the template.'
         )
     )
-    parameters: InstanceOf[Parameters] = Field(
+    parameters: Parameters = Field(
         title = 'Parameters', description = (
             'Parameters to modify for this template.'
         )
@@ -1076,7 +1075,7 @@ class overrideTemplate(BaseModel):
 
 # Model for defining parameters for override templates or simulations
 class overrideParams(BaseModel): 
-    parameters: InstanceOf[Parameters] = Field(
+    parameters: Parameters = Field(
         title = 'Parameters', description = ('The parameters to apply.')
     )
 
@@ -1091,7 +1090,7 @@ class simulation(BaseModel):
             'parameter values will be used by this simulation.'
         ))
     )
-    override_setting: Optional[InstanceOf[overrideParams]] = Field(
+    override_setting: Optional[overrideParams] = Field(
         title = 'Override Settings', default = None, description = (
             'Parameters that will be applied to this simulation alone.'
         )
@@ -1111,7 +1110,7 @@ class simulationSet(BaseModel):
             'If true, the model will not run this set of simulations.'
         )
     )
-    simulations: list[InstanceOf[simulation]] = Field(
+    simulations: list[simulation] = Field(
         title = 'Simulations', description = (
             'A list of scenarios to run in this set.'
         )
@@ -1157,24 +1156,24 @@ class modelGuideFile(BaseModel):
             '"toolbox_config.json".'
         ))
     )
-    shared_overrides: Optional[InstanceOf[overrideParams]] = Field(
+    shared_overrides: Optional[overrideParams] = Field(
         title = 'Shared Overrides', default = None, description = (
             'Parameters that will be applied to all scenarios in the file.'
         )
     )
-    community_overrides: Optional[list[InstanceOf[communityOverride]]] = Field(
+    community_overrides: Optional[list[communityOverride]] = Field(
         title = 'Community Overrides', default = None, description = ((
             'Parameters that will only be applied to '
             'simulations using specific communities'
         ))
     )
-    override_templates: Optional[list[InstanceOf[overrideTemplate]]] = Field(
+    override_templates: Optional[list[overrideTemplate]] = Field(
         title = 'Override Templates', default = None, description = ((
             'Templates containing a set of parameters that '
             'can be applied selectively to different scenarios.'
         ))
     )
-    simulation_sets: list[InstanceOf[simulationSet]] = Field(
+    simulation_sets: list[simulationSet] = Field(
         title = 'Simulation Sets', description = (
             'A list of sets containing scenarios to run together.'
         )

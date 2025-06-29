@@ -4,10 +4,21 @@
 # Imports
 import time
 import json
+import logging
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+
 from modelSchema import modelGuideFile
+
+
+
+# Logging config
+logging.basicConfig(
+    filename = './serverAppLogs.txt', filemode = 'a', 
+    format = '%(asctime)s,%(msecs)03d %(name)s %(levelname)s %(message)s', 
+    datefmt = '%Y-%m-%d %H:%M:%S', level = logging.INFO
+)
 
 
 
