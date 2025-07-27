@@ -13,6 +13,9 @@ from pydantic import (
     Field, model_validator, field_validator
 )
 
+# Logging
+validationLog = logging.getLogger(__name__)
+
 # Type Definitions
 type AgeGroup = Literal[
     'young_infant', # 0-6 months
@@ -55,11 +58,42 @@ parameterGetters = {
     'Scenario_VaccineDose': attrgetter('DoseType'), 
     'Scenario_VaccineDoseEfficacy': attrgetter('DoseType', 'Age')
 }
-validationLog = logging.getLogger(__name__)
 
 
 
 # Parameter Models
+
+# Set of scenario parameters set collectively for all age groups
+class ageScenarioParameters(BaseModel):
+    trans: Optional[Probability] = Field(
+        title = 'Transmission', default = None, description = ((
+            'The probability of transmission for all age groups will '
+            'be multiplied by this value; the higher this is, the more '
+            'likely it is that infected individuals will spread the '
+            'disease to others.'
+        ))
+    )
+    susc: Optional[Probability] = Field(
+        title = 'Susceptibility', default = None, description = ((
+            'The probability of transmission for all age groups will '
+            'be multiplied by this value; the higher this is, the more '
+            'likely it is that uninfected individuals will catch the '
+            'disease from others.'
+        ))
+    )
+    social_distance: Optional[Probability] = Field(
+        title = 'Social Distancing Compliance', default = None, 
+        description = ((
+            'The probability of complying with social distancing '
+            'procedures for all age groups.'
+        ))
+    )
+    mort: Optional[Probability] = Field(
+        title = 'Mortality', default = None, description = ((
+            'The probability of dying from '
+            'the disease for all age groups.'
+        ))
+    )
 
 # Set of scenario parameters modifying the simulation
 class scenarioParameters(BaseModel):
@@ -315,7 +349,7 @@ class scenarioParameters(BaseModel):
         ))
     )
     maximum_trigger_count: Optional[int] = Field(
-        title = 'Maximum Trigger Count', default = 10, ge = 0, description = ((
+        title = 'Maximum Trigger Count', default = 250, ge = 0, description = ((
             'The maximum number of times an intervention '
             'can be triggered in a single simulation run.'
         ))
@@ -363,6 +397,13 @@ class scenarioParameters(BaseModel):
             'The proportion of immune individuals who will lose their '
             'immunity to the disease each cycle, once immunity waning '
             'has begun.'
+        ))
+    )
+    infection_waned_protection: Optional[EfficacyValue] = Field(
+        title = 'Infection Immunity After Waning', default = 0.5,
+        description = ((
+            'The efficacy of the immunity conferred from infection '
+            'after it has waned to the maximum degree.'
         ))
     )
 
@@ -637,32 +678,312 @@ class scenarioParameters(BaseModel):
         ))
     )
 
-# Set of scenario parameters set individually for a specific age group
-class ageScenarioParameters(BaseModel):
-    trans: Optional[Probability] = Field(
-        title = 'Transmission', default = None, description = ((
-            'The transmissibility for individuals in the '
-            'specified age group, overriding other parameters.'
+    # Age-Specific Transmissibility
+    young_infant_trans: Optional[Probability] = Field(
+        title = 'Transmission (Young Infant)', default = None, description = ((
+            'The probability of transmission will be multiplied by '
+            'this value when the infected individual is less than 6 '
+            'months old. The higher this is, the more likely it is '
+            'that infected young infants will spread the disease to '
+            'others.'
         ))
     )
-    susc: Optional[Probability] = Field(
-        title = 'Susceptibility', default = None, description = ((
-            'The susceptibility for individuals in the '
-            'specified age group, overriding other parameters.'
+    infant_trans: Optional[Probability] = Field(
+        title = 'Transmission (Infant)', default = None, description = ((
+            'The probability of transmission will be multiplied by '
+            'this value when the infected individual is 7-24 months '
+            'old. The higher this is, the more likely it is that '
+            'infected infants will spread the disease to others.'
         ))
     )
-    social_distance: Optional[Probability] = Field(
-        title = 'Social Distancing Compliance', default = None, 
+    young_child_trans: Optional[Probability] = Field(
+        title = 'Transmission (Young Child)', default = None, description = ((
+            'The probability of transmission will be multiplied by '
+            'this value when the infected individual is 3-5 years old. '
+            'The higher this is, the more likely it is that infected '
+            'young children will spread the disease to others.'
+        ))
+    )
+    child_trans: Optional[Probability] = Field(
+        title = 'Transmission (Child)', default = None, description = ((
+            'The probability of transmission will be multiplied by '
+            'this value when the infected individual is 6-12 years '
+            'old. The higher this is, the more likely it is that '
+            'infected children will spread the disease to others.'
+        ))
+    )
+    adolescent_trans: Optional[Probability] = Field(
+        title = 'Transmission (Adolescent)', default = None, description = ((
+            'The probability of transmission will be multiplied by '
+            'this value when the infected individual is 13-17 years '
+            'old. The higher this is, the more likely it is that '
+            'infected adolescents will spread the disease to others.'
+        ))
+    )
+    young_adult_trans: Optional[Probability] = Field(
+        title = 'Transmission (Young Adult)', default = None, description = ((
+            'The probability of transmission will be multiplied by '
+            'this value when the infected individual is 18-24 years '
+            'old. The higher this is, the more likely it is that '
+            'infected young adults will spread the disease to others.'
+        ))
+    )
+    adult_trans: Optional[Probability] = Field(
+        title = 'Transmission (Adult)', default = None, description = ((
+            'The probability of transmission will be multiplied by '
+            'this value when the infected individual is 25-44 years '
+            'old. The higher this is, the more likely it is that '
+            'infected adults will spread the disease to others.'
+        ))
+    )
+    older_adult_trans: Optional[Probability] = Field(
+        title = 'Transmission (Older Adult)', default = None, description = ((
+            'The probability of transmission will be multiplied by '
+            'this value when the infected individual is 45-64 years '
+            'old. The higher this is, the more likely it is that '
+            'infected older adults will spread the disease to others.'
+        ))
+    )
+    senior_trans: Optional[Probability] = Field(
+        title = 'Transmission (Senior)', default = None, description = ((
+            'The probability of transmission will be multiplied by '
+            'this value when the infected individual is 65-79 years '
+            'old. The higher this is, the more likely it is that '
+            'infected seniors will spread the disease to others.'
+        ))
+    )
+    older_senior_trans: Optional[Probability] = Field(
+        title = 'Transmission (Older Senior)', default = None, description = ((
+            'The probability of transmission will be multiplied by '
+            'this value when the infected individual is over 80 years '
+            'old. The higher this is, the more likely it is that '
+            'infected older seniors will spread the disease to others.'
+        ))
+    )
+
+    # Age-Specific Susceptibility
+    young_infant_susc: Optional[Probability] = Field(
+        title = 'Susceptibility (Young Infant)', default = None, 
         description = ((
-            'The probability of complying with social distancing '
-            'procedures for individuals in the specified age '
-            'group, overriding other parameters.'
+            'The probability of transmission will be multiplied by '
+            'this value when the uninfected individual is less than 6 '
+            'months old. The higher this is, the more likely it is '
+            'that uninfected young infants will catch the disease from '
+            'others.'
         ))
     )
-    mort: Optional[Probability] = Field(
-        title = 'Transmission', default = None, description = ((
-            'The mortality for individuals in the specified '
-            'age group, overriding other parameters.'
+    infant_susc: Optional[Probability] = Field(
+        title = 'Susceptibility (Infant)', default = None, description = ((
+            'The probability of transmission will be multiplied by '
+            'this value when the uninfected individual is 7-24 months '
+            'old. The higher this is, the more likely it is that '
+            'uninfected infants will catch the disease from others.'
+        ))
+    )
+    young_child_susc: Optional[Probability] = Field(
+        title = 'Susceptibility (Young Child)', default = None, 
+        description = ((
+            'The probability of transmission will be multiplied by '
+            'this value when the uninfected individual is 3-5 years '
+            'old. The higher this is, the more likely it is that '
+            'uninfected young children will catch the disease from '
+            'others.'
+        ))
+    )
+    child_susc: Optional[Probability] = Field(
+        title = 'Susceptibility (Child)', default = None, description = ((
+            'The probability of transmission will be multiplied by '
+            'this value when the uninfected individual is 6-12 years '
+            'old. The higher this is, the more likely it is that '
+            'uninfected children will catch the disease from others.'
+        ))
+    )
+    adolescent_susc: Optional[Probability] = Field(
+        title = 'Susceptibility (Adolescent)', default = None, description = ((
+            'The probability of transmission will be multiplied by '
+            'this value when the uninfected individual is 13-17 years '
+            'old. The higher this is, the more likely it is that '
+            'uninfected adolescents will catch the disease from others.'
+        ))
+    )
+    young_adult_susc: Optional[Probability] = Field(
+        title = 'Susceptibility (Young Adult)', default = None, 
+        description = ((
+            'The probability of transmission will be multiplied by '
+            'this value when the uninfected individual is 18-24 years '
+            'old. The higher this is, the more likely it is that '
+            'uninfected young adults will catch the disease from '
+            'others.'
+        ))
+    )
+    adult_susc: Optional[Probability] = Field(
+        title = 'Susceptibility (Adult)', default = None, description = ((
+            'The probability of transmission will be multiplied by '
+            'this value when the uninfected individual is 25-44 years '
+            'old. The higher this is, the more likely it is that '
+            'uninfected adults will catch the disease from others.'
+        ))
+    )
+    older_adult_susc: Optional[Probability] = Field(
+        title = 'Susceptibility (Older Adult)', default = None, 
+        description = ((
+            'The probability of transmission will be multiplied by '
+            'this value when the uninfected individual is 45-64 years '
+            'old. The higher this is, the more likely it is that '
+            'uninfected older adults will catch the disease from '
+            'others.'
+        ))
+    )
+    senior_susc: Optional[Probability] = Field(
+        title = 'Susceptibility (Senior)', default = None, description = ((
+            'The probability of transmission will be multiplied by '
+            'this value when the uninfected individual is 65-79 years '
+            'old. The higher this is, the more likely it is that '
+            'uninfected seniors will catch the disease from others.'
+        ))
+    )
+    older_senior_susc: Optional[Probability] = Field(
+        title = 'Susceptibility (Older Senior)', default = None, 
+        description = ((
+            'The probability of transmission will be multiplied by '
+            'this value when the uninfected individual is over 80 '
+            'years old. The higher this is, the more likely it is that '
+            'uninfected older seniors will catch the disease from '
+            'others.'
+        ))
+    )
+
+    # Age-Specific Social Distancing
+    young_infant_social_distance: Optional[Probability] = Field(
+        title = 'Social Distancing Compliance (Young Infant)', 
+        default = None, description = ((
+            'The probability that an individual who is less than 6 '
+            'months old will comply with social distancing procedures.'
+        ))
+    )
+    infant_social_distance: Optional[Probability] = Field(
+        title = 'Social Distancing Compliance (Infant)', 
+        default = None, description = ((
+            'The probability that an individual who is 7-24 months old '
+            'will comply with social distancing procedures.'
+        ))
+    )
+    young_child_social_distance: Optional[Probability] = Field(
+        title = 'Social Distancing Compliance (Young Child)', 
+        default = None, description = ((
+            'The probability that an individual who is 3-5 years old '
+            'will comply with social distancing procedures.'
+        ))
+    )
+    child_social_distance: Optional[Probability] = Field(
+        title = 'Social Distancing Compliance (Child)', 
+        default = None, description = ((
+            'The probability that an individual who is 6-12 years old '
+            'will comply with social distancing procedures.'
+        ))
+    )
+    adolescent_social_distance: Optional[Probability] = Field(
+        title = 'Social Distancing Compliance (Adolescent)', 
+        default = None, description = ((
+            'The probability that an individual who is 13-17 years old '
+            'will comply with social distancing procedures.'
+        ))
+    )
+    young_adult_social_distance: Optional[Probability] = Field(
+        title = 'Social Distancing Compliance (Young Adult)', 
+        default = None, description = ((
+            'The probability that an individual who is 18-24 years old '
+            'will comply with social distancing procedures.'
+        ))
+    )
+    adult_social_distance: Optional[Probability] = Field(
+        title = 'Social Distancing Compliance (Adult)', 
+        default = None, description = ((
+            'The probability that an individual who is 25-44 years old '
+            'will comply with social distancing procedures.'
+        ))
+    )
+    older_adult_social_distance: Optional[Probability] = Field(
+        title = 'Social Distancing Compliance (Older Adult)', 
+        default = None, description = ((
+            'The probability that an individual who is 45-64 years old '
+            'will comply with social distancing procedures.'
+        ))
+    )
+    senior_social_distance: Optional[Probability] = Field(
+        title = 'Social Distancing Compliance (Senior)', 
+        default = None, description = ((
+            'The probability that an individual who is 65-79 years old '
+            'will comply with social distancing procedures.'
+        ))
+    )
+    older_senior_social_distance: Optional[Probability] = Field(
+        title = 'Social Distancing Compliance (Older Senior)', 
+        default = None, description = ((
+            'The probability that an individual who is over 80 years '
+            'old will comply with social distancing procedures.'
+        ))
+    )
+
+    # Age-Specific Mortality
+    young_infant_mort: Optional[Probability] = Field(
+        title = 'Mortality (Young Infant)', default = None, description = ((
+            'The probability that an individual who is less than 6 '
+            'months old will die as a result of the disease.'
+        ))
+    )
+    infant_mort: Optional[Probability] = Field(
+        title = 'Mortality (Infant)', default = None, description = ((
+            'The probability that an individual who is 7-24 months old '
+            'will die as a result of the disease.'
+        ))
+    )
+    young_child_mort: Optional[Probability] = Field(
+        title = 'Mortality (Young Child)', default = None, description = ((
+            'The probability that an individual who is 3-5 years old '
+            'will die as a result of the disease.'
+        ))
+    )
+    child_mort: Optional[Probability] = Field(
+        title = 'Mortality (Child)', default = None, description = ((
+            'The probability that an individual who is 6-12 years old '
+            'will die as a result of the disease.'
+        ))
+    )
+    adolescent_mort: Optional[Probability] = Field(
+        title = 'Mortality (Adolescent)', default = None, description = ((
+            'The probability that an individual who is 13-17 years old '
+            'will die as a result of the disease.'
+        ))
+    )
+    young_adult_mort: Optional[Probability] = Field(
+        title = 'Mortality (Young Adult)', default = None, description = ((
+            'The probability that an individual who is 18-24 years old '
+            'will die as a result of the disease.'
+        ))
+    )
+    adult_mort: Optional[Probability] = Field(
+        title = 'Mortality (Adult)', default = None, description = ((
+            'The probability that an individual who is 25-44 years old '
+            'will die as a result of the disease.'
+        ))
+    )
+    older_adult_mort: Optional[Probability] = Field(
+        title = 'Mortality (Older Adult)', default = None, description = ((
+            'The probability that an individual who is 45-64 years old '
+            'will die as a result of the disease.'
+        ))
+    )
+    senior_mort: Optional[Probability] = Field(
+        title = 'Mortality (Senior)', default = None, description = ((
+            'The probability that an individual who is 65-79 years old '
+            'will die as a result of the disease.'
+        ))
+    )
+    older_senior_mort: Optional[Probability] = Field(
+        title = 'Mortality (Older Senior)', default = None, description = ((
+            'The probability that an individual who is over 80 years '
+            'old will die as a result of the disease.'
         ))
     )
 
@@ -790,7 +1111,7 @@ class vaccineCoverage(BaseModel):
         ))
     )
     Target: EfficacyValue = Field(
-        title = 'Target Vaccinated Efficacy', description = ((
+        title = 'Target Vaccinated Proportion', description = ((
             'The proportion of the population which is being targeted for '
             'vaccination. If enough doses are available, this is the '
             'proportion of the population that will end up being vaccinated.'
@@ -877,7 +1198,7 @@ class vaccineEfficacy(BaseModel):
             validationLog.error(
                 f'[vaccineEfficacy] Encountered {type(e).__name__}: {e}'
             )
-            raise
+            raise e
 
 # Class for compiling all parameter types into one object
 class Parameters(BaseModel):
@@ -1007,7 +1328,7 @@ class Parameters(BaseModel):
             validationLog.error(
                 f'[vaccineEfficacy] Encountered {type(e).__name__}: {e}'
             )
-            raise
+            raise e
     
     # Ensure the right number of efficacies for primary vaccines are defined
     @model_validator(mode = 'after')
