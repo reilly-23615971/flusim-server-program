@@ -95,6 +95,9 @@ class ageScenarioParameters(BaseModel):
         ))
     )
 
+    class Config:
+        validate_assignment = True
+
 # Set of scenario parameters modifying the simulation
 class scenarioParameters(BaseModel):
     # Seeding Parameters
@@ -987,6 +990,9 @@ class scenarioParameters(BaseModel):
         ))
     )
 
+    class Config:
+        validate_assignment = True
+
 # Key-value arguments passed directly to the simulator
 class commandArgument(BaseModel):
     n_runs: Optional[int] = Field(
@@ -1026,7 +1032,7 @@ class crossImmunity(BaseModel):
 class dynamicIntervention(BaseModel):
     Name: Literal[
         'work_nonattendance', 'bcc_reduction', 'school_closure', 
-        'seed_rate', 'school_closure_delay' 'school_closure_duration'
+        'seed_rate', 'school_closure_delay', 'school_closure_duration'
     ] = Field(
         title = 'Parameter Name', description = (
             'The parameter whose value will be updated.'
@@ -1207,17 +1213,17 @@ class Parameters(BaseModel):
             'Parameters passed to the simulation on the command line.'
         )
     )
-    Scenario_Parameter: Optional[scenarioParameters] = Field(
-        title = 'Scenario Parameters', default = None, description = ((
-            'General model parameters that will populate the '
-            'Scenario_Parameter table used by the simulation.'
-        ))
-    )
     Scenario_ParameterWithAgePrefix: Optional[ageScenarioParameters] = Field(
         title = 'Age-Based Scenario Parameters', default = None, 
         description = ((
             'Parameters that will have unique values defined '
             'for each possible age category in the simulation.'
+        ))
+    )
+    Scenario_Parameter: Optional[scenarioParameters] = Field(
+        title = 'Scenario Parameters', default = None, description = ((
+            'General model parameters that will populate the '
+            'Scenario_Parameter table used by the simulation.'
         ))
     )
     # Note that the rest of the parameters are defined as lists of their
@@ -1329,6 +1335,9 @@ class Parameters(BaseModel):
                 f'[vaccineEfficacy] Encountered {type(e).__name__}: {e}'
             )
             raise e
+        
+    class Config:
+        validate_assignment = True
     
     # Ensure the right number of efficacies for primary vaccines are defined
     @model_validator(mode = 'after')
