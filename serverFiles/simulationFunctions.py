@@ -126,7 +126,9 @@ def epidemic(
     epidemicArgs = Namespace(
         community = communityName, set = id, 
         calculate_stat = summaryStat, 
-        cumulative_sum = cumulative, by_age = byAge
+        cumulative_sum = cumulative, by_age = byAge, 
+        moving_average_window = 7, scale = 1, by_strain = False, 
+        age_adjusted = None, split_output = False
     )
     print(
         f'[epidemic] Running "epidemic" analysis for set {id} [{summaryStat}]', 
@@ -149,7 +151,7 @@ def asir(
     onlyVaccinated = False
 ):
     # Run epidemic analysis
-    epidemicArgs = Namespace(
+    asirArgs = Namespace(
         community = communityName, set = id, calculate_stat = summaryStat, 
         proportion = getProportion, indigenous = onlyIndigenous, 
         pregnant = onlyPregnant, vaccinated = onlyVaccinated
@@ -161,7 +163,7 @@ def asir(
         '[pregnant only]' if onlyIndigenous else '[all pregnant status]', 
         '[vaccinated only]' if onlyIndigenous else '[all vaccine status]', 
     )
-    AsirCommand().run_command(epidemicArgs, toolboxConfig)
+    AsirCommand().run_command(asirArgs, toolboxConfig)
 
     # Return the name of the newly processed file
     filename = f'{communityName}{joint}-asir-{summaryStat}.csv'
