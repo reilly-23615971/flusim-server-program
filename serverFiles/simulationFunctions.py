@@ -128,7 +128,7 @@ def epidemic(
         calculate_stat = summaryStat, 
         cumulative_sum = cumulative, by_age = byAge, 
         moving_average_window = 7, scale = 1, by_strain = False, 
-        age_adjusted = None, split_output = False
+        age_adjusted = None, split_output = False, filenames = []
     )
     print(
         f'[epidemic] Running "epidemic" analysis for set {id} [{summaryStat}]', 
@@ -154,7 +154,7 @@ def asir(
     asirArgs = Namespace(
         community = communityName, set = id, calculate_stat = summaryStat, 
         proportion = getProportion, indigenous = onlyIndigenous, 
-        pregnant = onlyPregnant, vaccinated = onlyVaccinated
+        pregnant = onlyPregnant, vaccinated = onlyVaccinated, filenames = []
     )
     print(
         f'[asir] Running "asir" analysis for set {id} [{summaryStat}]', 
