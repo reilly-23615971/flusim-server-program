@@ -15,7 +15,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from ModelSchema import modelGuideFile
+from serverFiles.ModelSchema import modelGuideFile
 
 # Change this if file location relative to Flusim changes
 simLocation = ''

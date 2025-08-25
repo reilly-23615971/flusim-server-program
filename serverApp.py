@@ -30,7 +30,7 @@ logging.basicConfig(
 )
 
 # Throw error if Flusim files aren't present
-if not os.path.isfile('/src/toolbox/toolbox.py'): raise FileNotFoundError((
+if not os.path.isfile('src/toolbox/toolbox.py'): raise FileNotFoundError((
     'Flusim files not found. Ensure that this application is '
     'present in the same directory as the Flusim simulation files.'
 ))
