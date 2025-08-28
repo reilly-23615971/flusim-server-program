@@ -30,9 +30,12 @@ from commands.epidemic import EpidemicCurveCommand
 from commands.ASIRAnalysis import AsirCommand
 from analysis.AnalysisStat import AnalysisStat
 
+#Debug
 from analysis.DayRunAnalysis import DayRunAnalysis, DayRunAnalysisOptions
 from scenario.ScenarioFileFinder import ScenarioFileFinder
 from commands.epidemic import EpidemicCurveOptions
+import itertools
+
 # Logging
 functionLog = logging.getLogger(__name__)
 
@@ -89,20 +92,6 @@ def runSimulation(configData: modelGuideFile, toolboxPath):
     # Run the simulation
     RunCommand().run_command(Namespace(guide = guidePath), toolboxConfig)
 
-    """# Modified toolbox function code for running the model
-    startTime = time.monotonic()
-
-    # C++ code is multithreaded, so we don't need extra threading here
-    # TODO: Use toolbox config with updated middle joint, if necessary
-    queueBuilder = ScenarioBuilder(toolboxConfig, guidePath)
-    for scenario in queueBuilder.generateScenarios(): scenario.run()
-
-    duration = time.monotonic() - startTime
-    formattedDuration = str(datetime.timedelta(seconds = round(duration)))
-    functionLog.info(
-        f'[runSimulation] All simulations completed in {formattedDuration}'
-    )"""
-
     # Get list of sim files so they can be deleted once the 
     # simulation and analysis are complete
     simFiles = [
@@ -143,11 +132,28 @@ def epidemic(
         '[age-separated]' if byAge else '[age-combined]'
     )
     # Debug
-    print(f'Using Toolbox File at {toolboxPath}')
-    print(f'Toolbox Config: {toolboxConfig}')
-    print(f'Analysis Options: {DayRunAnalysisOptions.from_args(epidemicArgs)}')
+    print(f'\nUsing Toolbox File at {toolboxPath}')
+    print(f'Toolbox Config: {toolboxConfig.raw_config}')
+    print(f'Toolbox workbench_path: {toolboxConfig.workbench_path}')
+    print(f'Toolbox executable_path: {toolboxConfig.executable_path}')
+    print(f'Toolbox baseline_file: {toolboxConfig.baseline_file}')
+    print(f'Toolbox input_path: {toolboxConfig.input_path}')
+    print(f'Toolbox output_path: {toolboxConfig.output_path}')
+    print(f'Toolbox sql_path: {toolboxConfig.sql_path}')
+    print(f'Toolbox communities: {toolboxConfig.communities}')
+    print(f'Toolbox Community Config: {toolboxConfig.get_community_config('newcastle')}')
+
+    print(f'\nAnalysis Options: {DayRunAnalysisOptions.from_args(epidemicArgs)}')
     print(f'Curve Options: {EpidemicCurveOptions.from_args(epidemicArgs)}')
     print(f'All Args: {epidemicArgs}')
+    combos = itertools.product(epidemicArgs.community, epidemicArgs.set)
+    print(f'\nPossible Scenario Combos: {combos}')
+    globs = [
+            f"{community_name}{toolboxConfig.middle_joint}{set}{toolboxConfig.set_id_joint}*{toolboxConfig.event_suffix}"
+            for (community_name, set) in combos
+        ]
+    print(f'Obtained globs: {globs}')
+    print(f'Obtained Files: {[f for glob in globs for f in toolboxConfig.input_path.glob(glob)]}')
     # Return the name of the newly processed file
     filename = ((
         f'{communityName}{joint}-epidemic-'
