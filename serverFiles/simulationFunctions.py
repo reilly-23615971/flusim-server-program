@@ -29,15 +29,12 @@ from commands.Run.RunCommand import RunCommand
 from commands.epidemic import EpidemicCurveCommand
 from commands.ASIRAnalysis import AsirCommand
 from analysis.AnalysisStat import AnalysisStat
+from logger import Logger, LogLevel
 
-#Debug
-from analysis.DayRunAnalysis import DayRunAnalysis, DayRunAnalysisOptions
-from scenario.ScenarioFileFinder import ScenarioFileFinder
-from commands.epidemic import EpidemicCurveOptions
-import itertools
 
 # Logging
 functionLog = logging.getLogger(__name__)
+Logger.log_level == LogLevel.DEBUG
 
 
 

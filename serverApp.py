@@ -17,6 +17,8 @@ from serverFiles.simulationFunctions import (
     runSimulation, generateToolboxConfig, epidemic, asir, simLocation
 )
 
+from logger import Logger, LogLevel
+
 # Ensure Flusim imports work properly when called outside of toolbox
 sys.path.append(os.path.join(os.getcwd(), simLocation, 'src/toolbox'))
 from analysis.AnalysisStat import AnalysisStat
@@ -28,6 +30,7 @@ logging.basicConfig(
     format = '%(asctime)s,%(msecs)03d %(name)s %(levelname)s %(message)s', 
     datefmt = '%Y-%m-%d %H:%M:%S', level = logging.DEBUG
 )
+Logger.log_level == LogLevel.DEBUG
 
 # Throw error if Flusim files aren't present
 if not os.path.isfile('src/toolbox/toolbox.py'): raise FileNotFoundError((
