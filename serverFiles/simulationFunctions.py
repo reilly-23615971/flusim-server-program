@@ -30,6 +30,9 @@ from commands.epidemic import EpidemicCurveCommand
 from commands.ASIRAnalysis import AsirCommand
 from analysis.AnalysisStat import AnalysisStat
 
+from analysis.DayRunAnalysis import DayRunAnalysis, DayRunAnalysisOptions
+from scenario.ScenarioFileFinder import ScenarioFileFinder
+from commands.epidemic import EpidemicCurveOptions
 # Logging
 functionLog = logging.getLogger(__name__)
 
@@ -135,6 +138,11 @@ def epidemic(
         '[cumulative]' if cumulative else '[individual]', 
         '[age-separated]' if byAge else '[age-combined]'
     )
+    # Debug
+    print(f'Analysis Options: {DayRunAnalysisOptions.from_args(epidemicArgs)}')
+    print(f'Curve Options: {EpidemicCurveOptions.from_args(epidemicArgs)}')
+    print(f'All Args: {epidemicArgs}')
+
     EpidemicCurveCommand().run_command(epidemicArgs, toolboxConfig)
 
     # Return the name of the newly processed file
