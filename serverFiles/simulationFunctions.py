@@ -36,11 +36,6 @@ from commands.epidemic import EpidemicCurveOptions
 # Logging
 functionLog = logging.getLogger(__name__)
 
-# Define config early
-toolboxConfig = ToolboxConfiguration('conf/toolbox_config.json')
-
-
-
 
 
 # Function to generate the required toolbox config file
@@ -80,7 +75,10 @@ def generateToolboxConfig(id, joint):
 
 
 # Function to run the simulation using the given config files
-def runSimulation(configData: modelGuideFile):
+def runSimulation(configData: modelGuideFile, toolboxPath):
+    # Get toolbox config
+    toolboxConfig = ToolboxConfiguration(toolboxPath)
+    
     # Save guide file to JSON
     sessionID = configData.description
     guidePath = f'serverFiles/flusim-{sessionID}.guide.json'
@@ -123,8 +121,14 @@ def runSimulation(configData: modelGuideFile):
 # Function for epidemic toolbox function
 def epidemic(
     communityName, joint, id, summaryStat = AnalysisStat.MEDIAN, 
-    cumulative = False, byAge = False
+    cumulative = False, byAge = False, toolboxPath = None
 ):
+    # Get toolbox config
+    validPath = (
+        toolboxPath if toolboxPath else f'serverFiles/toolbox_config_{id}.json'
+    )
+    toolboxConfig = ToolboxConfiguration(validPath)
+
     # Run epidemic analysis
     epidemicArgs = Namespace(
         community = communityName, set = id, 
@@ -156,8 +160,14 @@ def epidemic(
 def asir(
     communityName, joint, id, summaryStat = AnalysisStat.MEDIAN, 
     getProportion = False, onlyIndigenous = False, onlyPregnant = False, 
-    onlyVaccinated = False
+    onlyVaccinated = False, toolboxPath = None
 ):
+    # Get toolbox config
+    validPath = (
+        toolboxPath if toolboxPath else f'serverFiles/toolbox_config_{id}.json'
+    )
+    toolboxConfig = ToolboxConfiguration(validPath)
+
     # Run epidemic analysis
     asirArgs = Namespace(
         community = communityName, set = id, calculate_stat = summaryStat, 

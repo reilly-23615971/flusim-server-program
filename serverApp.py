@@ -66,9 +66,10 @@ async def runModel(config: modelGuideFile, cleanup: BackgroundTasks):
 
     # Generate toolbox config file
     toolboxPath = generateToolboxConfig(sessionID, requiredData)
+    print(f'Toolbox file located at {toolboxPath}')
 
     # Run the Flusim simulation
-    simFiles = runSimulation(config)
+    simFiles = runSimulation(config, toolboxPath)
     print('Simulation complete\n')
     
     returnFiles = []
@@ -84,7 +85,8 @@ async def runModel(config: modelGuideFile, cleanup: BackgroundTasks):
             epiAge = 'EAgeBased' in requiredData
             returnFiles.append(epidemic(
                 community, requiredData, sessionID, summaryStat = sumStat, 
-                cumulative = epiCumulative, byAge = epiAge
+                cumulative = epiCumulative, byAge = epiAge, 
+                toolboxPath = toolboxPath
             ))
         # Asir tool
         if 'usingAsir' in requiredData:
@@ -100,12 +102,14 @@ async def runModel(config: modelGuideFile, cleanup: BackgroundTasks):
                 community, requiredData, sessionID, 
                 summaryStat = sumStat, getProportion = asirProportion, 
                 onlyIndigenous = asirIndigenous, onlyPregnant = asirPregnant, 
-                onlyVaccinated = asirVaccinated
+                onlyVaccinated = asirVaccinated, toolboxPath = toolboxPath
             ))
     # If all else fails, run epidemic
     if not returnFiles: 
         print('No analyses specified; defaulting to epidemic')
-        returnFiles.append(epidemic(community, requiredData, sessionID))
+        returnFiles.append(epidemic(
+            community, requiredData, sessionID, toolboxPath = toolboxPath
+        ))
 
     print(f'\nAnalysis files:')
     for file in returnFiles: print('   ', file)
