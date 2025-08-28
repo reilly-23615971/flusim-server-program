@@ -87,7 +87,9 @@ def runSimulation(configData: modelGuideFile, toolboxPath):
     )
     
     # Run the simulation
-    RunCommand().run_command(Namespace(guide = guidePath), toolboxConfig)
+    RunCommand().run_command(
+        Namespace(guide = guidePath, log_level = LogLevel.DEBUG), toolboxConfig
+    )
 
     # Get list of sim files so they can be deleted once the 
     # simulation and analysis are complete
@@ -121,7 +123,8 @@ def epidemic(
         calculate_stat = summaryStat, 
         cumulative_sum = cumulative, by_age = byAge, 
         moving_average_window = 7, scale = 1, by_strain = False, 
-        age_adjusted = None, split_output = False, filenames = []
+        age_adjusted = None, split_output = False, filenames = [], 
+        log_level = LogLevel.DEBUG
     )
     print(
         f'[epidemic] Running "epidemic" analysis for set {id} [{summaryStat}]', 
@@ -153,7 +156,8 @@ def asir(
     asirArgs = Namespace(
         community = communityName, set = id, calculate_stat = summaryStat, 
         proportion = getProportion, indigenous = onlyIndigenous, 
-        pregnant = onlyPregnant, vaccinated = onlyVaccinated, filenames = []
+        pregnant = onlyPregnant, vaccinated = onlyVaccinated, filenames = [], 
+        log_level = LogLevel.DEBUG
     )
     print(
         f'[asir] Running "asir" analysis for set {id} [{summaryStat}]', 
