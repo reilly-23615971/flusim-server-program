@@ -69,7 +69,7 @@ def generateToolboxConfig(id, joint):
         f'configuration file {toolboxConfigPath}'
     ))
     with open(toolboxConfigPath, 'w') as file: json.dump(
-        toolboxConfigSettings, file
+        toolboxConfigSettings, file, indent = 4
     )
     return toolboxConfigPath
 
@@ -143,9 +143,17 @@ def epidemic(
         '[age-separated]' if byAge else '[age-combined]'
     )
     # Debug
+    print(f'Using Toolbox File at {toolboxPath}')
+    print(f'Toolbox Config: {toolboxConfig}')
     print(f'Analysis Options: {DayRunAnalysisOptions.from_args(epidemicArgs)}')
     print(f'Curve Options: {EpidemicCurveOptions.from_args(epidemicArgs)}')
     print(f'All Args: {epidemicArgs}')
+    # Return the name of the newly processed file
+    filename = ((
+        f'{communityName}{joint}-epidemic-'
+        f'{'cumulative-' if cumulative else ''}{summaryStat}.csv'
+    ))
+    print(f'Projected Filename: {filename}')
 
     EpidemicCurveCommand().run_command(epidemicArgs, toolboxConfig)
 
