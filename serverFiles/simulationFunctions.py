@@ -97,7 +97,7 @@ def runSimulation(configData: modelGuideFile, toolboxPath):
     simFiles = [
         os.path.join(simLocation, 'results', ((
             f'{configData.community_used[0]}{configData.middle_joint}'
-            f'{configData.simulation_sets[0].version}-0{i + 1}.sqlite'
+            f'{configData.simulation_sets[0].version}-0{i}.sqlite'
         ))) 
         for i in range(len(configData.simulation_sets[0].simulations))
     ]
@@ -131,25 +131,6 @@ def epidemic(
         '[cumulative]' if cumulative else '[individual]', 
         '[age-separated]' if byAge else '[age-combined]'
     )
-    # Debug
-
-    print(f'\nAnalysis Options: {DayRunAnalysisOptions.from_args(epidemicArgs)}')
-    print(f'Curve Options: {EpidemicCurveOptions.from_args(epidemicArgs)}')
-    print(f'All Args: {epidemicArgs}')
-    combos = itertools.product(epidemicArgs.community, epidemicArgs.set)
-    globs = [
-            f"{community_name}{toolboxConfig.middle_joint}{set}{toolboxConfig.set_id_joint}*{toolboxConfig.event_suffix}"
-            for (community_name, set) in combos
-        ]
-    print(f'Obtained globs: {globs}')
-    print(f'Obtained Files: {[f for glob in globs for f in toolboxConfig.input_path.glob(glob)]}')
-    # Return the name of the newly processed file
-    filename = ((
-        f'{communityName}{joint}-epidemic-'
-        f'{'cumulative-' if cumulative else ''}{summaryStat}.csv'
-    ))
-    print(f'Projected Filename: {filename}')
-
     EpidemicCurveCommand().run_command(epidemicArgs, toolboxConfig)
 
     # Return the name of the newly processed file
