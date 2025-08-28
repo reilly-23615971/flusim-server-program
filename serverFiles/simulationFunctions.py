@@ -120,7 +120,7 @@ def epidemic(
 
     # Run epidemic analysis
     epidemicArgs = Namespace(
-        community = communityName, set = id, 
+        community = [communityName], set = [id], 
         calculate_stat = summaryStat, 
         cumulative_sum = cumulative, by_age = byAge, 
         moving_average_window = 7, scale = 1, by_strain = False, 
@@ -132,22 +132,11 @@ def epidemic(
         '[age-separated]' if byAge else '[age-combined]'
     )
     # Debug
-    print(f'\nUsing Toolbox File at {toolboxPath}')
-    print(f'Toolbox Config: {toolboxConfig.raw_config}')
-    print(f'Toolbox workbench_path: {toolboxConfig.workbench_path}')
-    print(f'Toolbox executable_path: {toolboxConfig.executable_path}')
-    print(f'Toolbox baseline_file: {toolboxConfig.baseline_file}')
-    print(f'Toolbox input_path: {toolboxConfig.input_path}')
-    print(f'Toolbox output_path: {toolboxConfig.output_path}')
-    print(f'Toolbox sql_path: {toolboxConfig.sql_path}')
-    print(f'Toolbox communities: {toolboxConfig.communities}')
-    print(f'Toolbox Community Config: {toolboxConfig.get_community_config('newcastle')}')
 
     print(f'\nAnalysis Options: {DayRunAnalysisOptions.from_args(epidemicArgs)}')
     print(f'Curve Options: {EpidemicCurveOptions.from_args(epidemicArgs)}')
     print(f'All Args: {epidemicArgs}')
     combos = itertools.product(epidemicArgs.community, epidemicArgs.set)
-    print(f'\nPossible Scenario Combos: {combos}')
     globs = [
             f"{community_name}{toolboxConfig.middle_joint}{set}{toolboxConfig.set_id_joint}*{toolboxConfig.event_suffix}"
             for (community_name, set) in combos
