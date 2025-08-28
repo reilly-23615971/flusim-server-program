@@ -154,7 +154,7 @@ def epidemic(
 
     # Return the name of the newly processed file
     filename = ((
-        f'{communityName}{joint}-epidemic-'
+        f'{communityName}{joint}{id}-epidemic-'
         f'{'cumulative-' if cumulative else ''}{summaryStat}.csv'
     ))
     return os.path.join(simLocation, f'post-analysis/{filename}')
