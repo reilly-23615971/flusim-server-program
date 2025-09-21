@@ -51,7 +51,7 @@ flusimApp = FastAPI()
 # CORS Middleware for ensuring only the web application can make requests
 flusimApp.add_middleware(
     CORSMiddleware,
-    allow_origins = ['*'], # replace with Azure SWA URLs
+    allow_origins = ['*'], # replace with production URLs
     allow_credentials = True,
     allow_methods = ['POST'],
     allow_headers = ["*"],
@@ -76,8 +76,8 @@ async def runModel(config: modelGuideFile, cleanup: BackgroundTasks):
     print('Simulation complete\n')
     
     returnFiles = []
-    # Use middle joint to determine analyses to run
-    if requiredData:
+    # TODO: Use middle joint to determine analyses to run 
+    middleCheck = """if requiredData:
         # Epidemic tool
         if 'usingEpidemic' in requiredData: 
             sumStat = (
@@ -106,7 +106,19 @@ async def runModel(config: modelGuideFile, cleanup: BackgroundTasks):
                 summaryStat = sumStat, getProportion = asirProportion, 
                 onlyIndigenous = asirIndigenous, onlyPregnant = asirPregnant, 
                 onlyVaccinated = asirVaccinated, toolboxPath = toolboxPath
-            ))
+            ))"""
+    # for now, just get the 3 analyses the dashboard uses
+    returnFiles.append(epidemic(
+        community, requiredData, sessionID, 
+        cumulative = True, toolboxPath = toolboxPath
+    ))
+    returnFiles.append(epidemic(
+        community, requiredData, sessionID, 
+        cumulative = False, toolboxPath = toolboxPath
+    ))
+    returnFiles.append(asir(
+        community, requiredData, sessionID, toolboxPath = toolboxPath
+    ))
     # If all else fails, run epidemic
     if not returnFiles: 
         print('No analyses specified; defaulting to epidemic')
