@@ -119,7 +119,7 @@ async def runModel(config: modelGuideFile, cleanup: BackgroundTasks):
     returnFiles.append(asir(
         community, requiredData, sessionID, toolboxPath = toolboxPath
     ))
-    # If all else fails, run epidemic
+    # If all else fails and no analyses were specified, run epidemic
     if not returnFiles: 
         print('No analyses specified; defaulting to epidemic')
         returnFiles.append(epidemic(
