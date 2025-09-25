@@ -154,13 +154,14 @@ def asir(
 
     # Run epidemic analysis
     asirArgs = Namespace(
-        community = communityName, set = id, calculate_stat = summaryStat, 
+        community = [communityName], set = id, calculate_stat = summaryStat, 
         proportion = getProportion, indigenous = onlyIndigenous, 
         pregnant = onlyPregnant, vaccinated = onlyVaccinated, filenames = [], 
         log_level = LogLevel.DEBUG
     )
     print(
-        f'[asir] Running "asir" analysis for set {id} on community {communityName}[{summaryStat}]', 
+        f'[asir] Running "asir" analysis for set {id} on community '
+        f'{communityName} [{summaryStat}]', 
         '[proportionate]' if getProportion else '[discrete]', 
         '[indigenous only]' if onlyIndigenous else '[all demographics]', 
         '[pregnant only]' if onlyIndigenous else '[all pregnant status]', 
