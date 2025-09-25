@@ -23,13 +23,17 @@ from logger import Logger, LogLevel
 sys.path.append(os.path.join(os.getcwd(), simLocation, 'src/toolbox'))
 from analysis.AnalysisStat import AnalysisStat
 
-
 # Logging config
 logging.basicConfig(
     filename = 'serverFiles/serverAppLogs.txt', filemode = 'a', 
     format = '%(asctime)s,%(msecs)03d %(name)s %(levelname)s %(message)s', 
     datefmt = '%Y-%m-%d %H:%M:%S', level = logging.INFO
 )
+
+
+
+# Set this to False to preserve files after running sim
+deleteFiles = False
 
 # Throw error if Flusim files aren't present
 if not os.path.isfile('src/toolbox/toolbox.py'): raise FileNotFoundError((
@@ -139,7 +143,9 @@ async def runModel(config: modelGuideFile, cleanup: BackgroundTasks):
     else: finalPath = returnFiles[0]
     
     # Schedule files created here to be removed
-    cleanup.add_task(clearFiles, simFiles + returnFiles + [toolboxPath])
+    if deleteFiles: cleanup.add_task(
+        clearFiles, simFiles + returnFiles + [toolboxPath]
+    )
 
     print(f'\nSimulation for session {sessionID} complete, returning data')
     return FileResponse(finalPath)
