@@ -160,7 +160,7 @@ def asir(
         log_level = LogLevel.DEBUG
     )
     print(
-        f'[asir] Running "asir" analysis for set {id} [{summaryStat}]', 
+        f'[asir] Running "asir" analysis for set {id} on community {communityName}[{summaryStat}]', 
         '[proportionate]' if getProportion else '[discrete]', 
         '[indigenous only]' if onlyIndigenous else '[all demographics]', 
         '[pregnant only]' if onlyIndigenous else '[all pregnant status]', 
