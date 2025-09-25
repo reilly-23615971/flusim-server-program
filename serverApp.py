@@ -28,9 +28,8 @@ from analysis.AnalysisStat import AnalysisStat
 logging.basicConfig(
     filename = 'serverFiles/serverAppLogs.txt', filemode = 'a', 
     format = '%(asctime)s,%(msecs)03d %(name)s %(levelname)s %(message)s', 
-    datefmt = '%Y-%m-%d %H:%M:%S', level = logging.DEBUG
+    datefmt = '%Y-%m-%d %H:%M:%S', level = logging.INFO
 )
-Logger.log_level == LogLevel.DEBUG
 
 # Throw error if Flusim files aren't present
 if not os.path.isfile('src/toolbox/toolbox.py'): raise FileNotFoundError((
