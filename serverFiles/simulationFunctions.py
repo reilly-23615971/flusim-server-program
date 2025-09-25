@@ -169,5 +169,5 @@ def asir(
     AsirCommand().run_command(asirArgs, toolboxConfig)
 
     # Return the name of the newly processed file
-    filename = f'{communityName}{joint}-asir-{summaryStat}.csv'
+    filename = f'{communityName}{joint}{id}-asir-{summaryStat}.csv'
     return os.path.join(simLocation, f'post-analysis/{filename}')
