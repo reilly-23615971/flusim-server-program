@@ -68,7 +68,7 @@ def generateToolboxConfig(id, joint):
         f'configuration file {toolboxConfigPath}'
     ))
     with open(toolboxConfigPath, 'w') as file: json.dump(
-        toolboxConfigSettings, file, indent = 4
+        toolboxConfigSettings, file, indent = 2
     )
     return toolboxConfigPath
 
