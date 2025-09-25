@@ -27,7 +27,7 @@ from analysis.AnalysisStat import AnalysisStat
 logging.basicConfig(
     filename = 'serverFiles/serverAppLogs.txt', filemode = 'a', 
     format = '%(asctime)s,%(msecs)03d %(name)s %(levelname)s %(message)s', 
-    datefmt = '%Y-%m-%d %H:%M:%S', level = logging.INFO
+    datefmt = '%Y-%m-%d %H:%M:%S', level = logging.WARN
 )
 
 
@@ -134,7 +134,7 @@ async def runModel(config: modelGuideFile, cleanup: BackgroundTasks):
 
     # Zip together the analysis files if necessary
     if len(returnFiles) != 1:
-        zipPath = f'serverFiles/{id}_analysis.zip'
+        zipPath = f'serverFiles/{sessionID}_analysis.zip'
         with zipfile.ZipFile(zipPath, mode = 'w') as analysis:
             for file in returnFiles: analysis.write(file)
         returnFiles.append(zipPath)
