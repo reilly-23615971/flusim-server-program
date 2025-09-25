@@ -34,7 +34,6 @@ from logger import Logger, LogLevel
 
 # Logging
 functionLog = logging.getLogger(__name__)
-Logger.log_level == LogLevel.DEBUG
 
 
 
