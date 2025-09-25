@@ -82,7 +82,7 @@ def runSimulation(configData: modelGuideFile, toolboxPath):
     sessionID = configData.description
     guidePath = f'serverFiles/flusim-{sessionID}.guide.json'
     with open(guidePath, 'w') as file: file.write(
-        configData.model_dump_json(indent = 4, exclude_unset = True)
+        configData.model_dump_json(indent = 2, exclude_unset = True)
     )
     
     # Run the simulation
