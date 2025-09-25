@@ -154,7 +154,7 @@ def asir(
 
     # Run epidemic analysis
     asirArgs = Namespace(
-        community = [communityName], set = id, calculate_stat = summaryStat, 
+        community = [communityName], set = [id], calculate_stat = summaryStat, 
         proportion = getProportion, indigenous = onlyIndigenous, 
         pregnant = onlyPregnant, vaccinated = onlyVaccinated, filenames = [], 
         log_level = LogLevel.DEBUG
