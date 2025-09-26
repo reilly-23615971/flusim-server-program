@@ -33,7 +33,7 @@ logging.basicConfig(
 
 
 # Set this to False to preserve files after running sim
-deleteFiles = False
+deleteFiles = True
 
 # Throw error if Flusim files aren't present
 if not os.path.isfile('src/toolbox/toolbox.py'): raise FileNotFoundError((
