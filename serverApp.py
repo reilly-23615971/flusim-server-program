@@ -2,10 +2,8 @@
 # Developed by Reilly Evans
 
 # Imports
-import time
 import os
 import sys
-import json
 import zipfile
 import logging
 from fastapi import FastAPI, BackgroundTasks
@@ -23,7 +21,9 @@ from logger import Logger, LogLevel
 sys.path.append(os.path.join(os.getcwd(), simLocation, 'src/toolbox'))
 from analysis.AnalysisStat import AnalysisStat
 
-# Logging config
+# Logging config (create log folder outside of project dir to avoid 
+# watchfiles getting into an endless update loop)
+os.makedirs('../Logs', exist_ok = True)
 logging.basicConfig(
     filename = '../Logs/serverAppLogs.txt', filemode = 'a', 
     format = '%(asctime)s,%(msecs)03d %(name)s %(levelname)s %(message)s', 
