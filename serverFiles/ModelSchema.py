@@ -996,9 +996,10 @@ class scenarioParameters(BaseModel):
 # Key-value arguments passed directly to the simulator
 class commandArgument(BaseModel):
     n_runs: Optional[int] = Field(
-        title = 'Number of Runs', default = 24, ge = 1, description = (
-            'The number of simulation runs to perform.'
-        )
+        title = 'Number of Runs', default = 24, ge = 15, description = ((
+            'The number of simulation runs to perform. Simulations '
+            'will not run correctly if the number of runs is less than 15.'
+        ))
     )
     n_cycles: Optional[int] = Field(
         title = 'Number of Cycles', default = 720, ge = 1, description = ((
@@ -1455,8 +1456,6 @@ class simulationSet(BaseModel):
 
 # Model for the full configuration JSON file
 class modelGuideFile(BaseModel):
-    # TODO: better default values for stuff the user can't modify
-    # TODO: validate that template/community names are correct
     name: str = Field(
         title = 'Name', description = (
             'The name of the simulation guide file.'
