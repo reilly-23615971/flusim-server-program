@@ -25,7 +25,7 @@ from analysis.AnalysisStat import AnalysisStat
 
 # Logging config
 logging.basicConfig(
-    filename = '../serverAppLogs.txt', filemode = 'a', 
+    filename = '../Logs/serverAppLogs.txt', filemode = 'a', 
     format = '%(asctime)s,%(msecs)03d %(name)s %(levelname)s %(message)s', 
     datefmt = '%Y-%m-%d %H:%M:%S', level = logging.WARN
 )
