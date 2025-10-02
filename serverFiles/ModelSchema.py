@@ -65,16 +65,16 @@ parameterGetters = {
 
 # Set of scenario parameters set collectively for all age groups
 class ageScenarioParameters(BaseModel):
-    trans: Optional[Probability] = Field(
-        title = 'Transmission', default = None, description = ((
+    trans: Optional[float] = Field(
+        title = 'Transmission', default = None, ge = 0.0, description = ((
             'The probability of transmission for all age groups will '
             'be multiplied by this value; the higher this is, the more '
             'likely it is that infected individuals will spread the '
             'disease to others.'
         ))
     )
-    susc: Optional[Probability] = Field(
-        title = 'Susceptibility', default = None, description = ((
+    susc: Optional[float] = Field(
+        title = 'Susceptibility', default = None, ge = 0.0, description = ((
             'The probability of transmission for all age groups will '
             'be multiplied by this value; the higher this is, the more '
             'likely it is that uninfected individuals will catch the '
@@ -682,8 +682,8 @@ class scenarioParameters(BaseModel):
     )
 
     # Age-Specific Transmissibility
-    young_infant_trans: Optional[Probability] = Field(
-        title = 'Transmission (Young Infant)', default = None, description = ((
+    young_infant_trans: Optional[float] = Field(
+        title = 'Transmission (Young Infant)', default = None, ge = 0, description = ((
             'The probability of transmission will be multiplied by '
             'this value when the infected individual is less than 6 '
             'months old. The higher this is, the more likely it is '
@@ -691,72 +691,72 @@ class scenarioParameters(BaseModel):
             'others.'
         ))
     )
-    infant_trans: Optional[Probability] = Field(
-        title = 'Transmission (Infant)', default = None, description = ((
+    infant_trans: Optional[float] = Field(
+        title = 'Transmission (Infant)', default = None, ge = 0, description = ((
             'The probability of transmission will be multiplied by '
             'this value when the infected individual is 7-24 months '
             'old. The higher this is, the more likely it is that '
             'infected infants will spread the disease to others.'
         ))
     )
-    young_child_trans: Optional[Probability] = Field(
-        title = 'Transmission (Young Child)', default = None, description = ((
+    young_child_trans: Optional[float] = Field(
+        title = 'Transmission (Young Child)', default = None, ge = 0, description = ((
             'The probability of transmission will be multiplied by '
             'this value when the infected individual is 3-5 years old. '
             'The higher this is, the more likely it is that infected '
             'young children will spread the disease to others.'
         ))
     )
-    child_trans: Optional[Probability] = Field(
-        title = 'Transmission (Child)', default = None, description = ((
+    child_trans: Optional[float] = Field(
+        title = 'Transmission (Child)', default = None, ge = 0, description = ((
             'The probability of transmission will be multiplied by '
             'this value when the infected individual is 6-12 years '
             'old. The higher this is, the more likely it is that '
             'infected children will spread the disease to others.'
         ))
     )
-    adolescent_trans: Optional[Probability] = Field(
-        title = 'Transmission (Adolescent)', default = None, description = ((
+    adolescent_trans: Optional[float] = Field(
+        title = 'Transmission (Adolescent)', default = None, ge = 0, description = ((
             'The probability of transmission will be multiplied by '
             'this value when the infected individual is 13-17 years '
             'old. The higher this is, the more likely it is that '
             'infected adolescents will spread the disease to others.'
         ))
     )
-    young_adult_trans: Optional[Probability] = Field(
-        title = 'Transmission (Young Adult)', default = None, description = ((
+    young_adult_trans: Optional[float] = Field(
+        title = 'Transmission (Young Adult)', default = None, ge = 0, description = ((
             'The probability of transmission will be multiplied by '
             'this value when the infected individual is 18-24 years '
             'old. The higher this is, the more likely it is that '
             'infected young adults will spread the disease to others.'
         ))
     )
-    adult_trans: Optional[Probability] = Field(
-        title = 'Transmission (Adult)', default = None, description = ((
+    adult_trans: Optional[float] = Field(
+        title = 'Transmission (Adult)', default = None, ge = 0, description = ((
             'The probability of transmission will be multiplied by '
             'this value when the infected individual is 25-44 years '
             'old. The higher this is, the more likely it is that '
             'infected adults will spread the disease to others.'
         ))
     )
-    older_adult_trans: Optional[Probability] = Field(
-        title = 'Transmission (Older Adult)', default = None, description = ((
+    older_adult_trans: Optional[float] = Field(
+        title = 'Transmission (Older Adult)', default = None, ge = 0, description = ((
             'The probability of transmission will be multiplied by '
             'this value when the infected individual is 45-64 years '
             'old. The higher this is, the more likely it is that '
             'infected older adults will spread the disease to others.'
         ))
     )
-    senior_trans: Optional[Probability] = Field(
-        title = 'Transmission (Senior)', default = None, description = ((
+    senior_trans: Optional[float] = Field(
+        title = 'Transmission (Senior)', default = None, ge = 0, description = ((
             'The probability of transmission will be multiplied by '
             'this value when the infected individual is 65-79 years '
             'old. The higher this is, the more likely it is that '
             'infected seniors will spread the disease to others.'
         ))
     )
-    older_senior_trans: Optional[Probability] = Field(
-        title = 'Transmission (Older Senior)', default = None, description = ((
+    older_senior_trans: Optional[float] = Field(
+        title = 'Transmission (Older Senior)', default = None, ge = 0, description = ((
             'The probability of transmission will be multiplied by '
             'this value when the infected individual is over 80 years '
             'old. The higher this is, the more likely it is that '
@@ -765,8 +765,8 @@ class scenarioParameters(BaseModel):
     )
 
     # Age-Specific Susceptibility
-    young_infant_susc: Optional[Probability] = Field(
-        title = 'Susceptibility (Young Infant)', default = None, 
+    young_infant_susc: Optional[float] = Field(
+        title = 'Susceptibility (Young Infant)', default = None, ge = 0, 
         description = ((
             'The probability of transmission will be multiplied by '
             'this value when the uninfected individual is less than 6 '
@@ -775,16 +775,16 @@ class scenarioParameters(BaseModel):
             'others.'
         ))
     )
-    infant_susc: Optional[Probability] = Field(
-        title = 'Susceptibility (Infant)', default = None, description = ((
+    infant_susc: Optional[float] = Field(
+        title = 'Susceptibility (Infant)', default = None, ge = 0, description = ((
             'The probability of transmission will be multiplied by '
             'this value when the uninfected individual is 7-24 months '
             'old. The higher this is, the more likely it is that '
             'uninfected infants will catch the disease from others.'
         ))
     )
-    young_child_susc: Optional[Probability] = Field(
-        title = 'Susceptibility (Young Child)', default = None, 
+    young_child_susc: Optional[float] = Field(
+        title = 'Susceptibility (Young Child)', default = None, ge = 0, 
         description = ((
             'The probability of transmission will be multiplied by '
             'this value when the uninfected individual is 3-5 years '
@@ -793,24 +793,24 @@ class scenarioParameters(BaseModel):
             'others.'
         ))
     )
-    child_susc: Optional[Probability] = Field(
-        title = 'Susceptibility (Child)', default = None, description = ((
+    child_susc: Optional[float] = Field(
+        title = 'Susceptibility (Child)', default = None, ge = 0, description = ((
             'The probability of transmission will be multiplied by '
             'this value when the uninfected individual is 6-12 years '
             'old. The higher this is, the more likely it is that '
             'uninfected children will catch the disease from others.'
         ))
     )
-    adolescent_susc: Optional[Probability] = Field(
-        title = 'Susceptibility (Adolescent)', default = None, description = ((
+    adolescent_susc: Optional[float] = Field(
+        title = 'Susceptibility (Adolescent)', default = None, ge = 0, description = ((
             'The probability of transmission will be multiplied by '
             'this value when the uninfected individual is 13-17 years '
             'old. The higher this is, the more likely it is that '
             'uninfected adolescents will catch the disease from others.'
         ))
     )
-    young_adult_susc: Optional[Probability] = Field(
-        title = 'Susceptibility (Young Adult)', default = None, 
+    young_adult_susc: Optional[float] = Field(
+        title = 'Susceptibility (Young Adult)', default = None, ge = 0, 
         description = ((
             'The probability of transmission will be multiplied by '
             'this value when the uninfected individual is 18-24 years '
@@ -819,16 +819,16 @@ class scenarioParameters(BaseModel):
             'others.'
         ))
     )
-    adult_susc: Optional[Probability] = Field(
-        title = 'Susceptibility (Adult)', default = None, description = ((
+    adult_susc: Optional[float] = Field(
+        title = 'Susceptibility (Adult)', default = None, ge = 0, description = ((
             'The probability of transmission will be multiplied by '
             'this value when the uninfected individual is 25-44 years '
             'old. The higher this is, the more likely it is that '
             'uninfected adults will catch the disease from others.'
         ))
     )
-    older_adult_susc: Optional[Probability] = Field(
-        title = 'Susceptibility (Older Adult)', default = None, 
+    older_adult_susc: Optional[float] = Field(
+        title = 'Susceptibility (Older Adult)', default = None, ge = 0, 
         description = ((
             'The probability of transmission will be multiplied by '
             'this value when the uninfected individual is 45-64 years '
@@ -837,16 +837,16 @@ class scenarioParameters(BaseModel):
             'others.'
         ))
     )
-    senior_susc: Optional[Probability] = Field(
-        title = 'Susceptibility (Senior)', default = None, description = ((
+    senior_susc: Optional[float] = Field(
+        title = 'Susceptibility (Senior)', default = None, ge = 0, description = ((
             'The probability of transmission will be multiplied by '
             'this value when the uninfected individual is 65-79 years '
             'old. The higher this is, the more likely it is that '
             'uninfected seniors will catch the disease from others.'
         ))
     )
-    older_senior_susc: Optional[Probability] = Field(
-        title = 'Susceptibility (Older Senior)', default = None, 
+    older_senior_susc: Optional[float] = Field(
+        title = 'Susceptibility (Older Senior)', default = None, ge = 0, 
         description = ((
             'The probability of transmission will be multiplied by '
             'this value when the uninfected individual is over 80 '
