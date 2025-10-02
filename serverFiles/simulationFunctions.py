@@ -5,16 +5,12 @@
 # Note that this file assumes it's just outside the smrg-flusim folder
 
 # Imports
-import time
-import datetime
 import os
 import sys
 from argparse import Namespace
 import json
 import logging
-from fastapi import FastAPI
-from fastapi.responses import FileResponse
-from fastapi.middleware.cors import CORSMiddleware
+import pandas as pd
 from serverFiles.ModelSchema import modelGuideFile
 
 # Change this if file location relative to Flusim changes
@@ -133,11 +129,16 @@ def epidemic(
     EpidemicCurveCommand().run_command(epidemicArgs, toolboxConfig)
 
     # Return the name of the newly processed file
-    filename = ((
+    filename = os.path.join(
+        simLocation, 'post-analysis', ((
         f'{communityName}{joint}{id}-epidemic-'
         f'{'cumulative-' if cumulative else ''}{summaryStat}.csv'
-    ))
-    return os.path.join(simLocation, f'post-analysis/{filename}')
+        ))
+    )
+
+    orderedEpidemic = pd.read_csv(filename, header = 0).sort_index(axis = 1)
+    orderedEpidemic.to_csv(filename, na_rep = '0.0')
+    return filename
 
 # Function for asir toolbox function
 def asir(
@@ -167,7 +168,15 @@ def asir(
         '[vaccinated only]' if onlyIndigenous else '[all vaccine status]', 
     )
     AsirCommand().run_command(asirArgs, toolboxConfig)
+    filename = os.path.join(
+        simLocation, 
+        f'post-analysis/{communityName}{joint}{id}-asir-{summaryStat}.csv'
+    )
+
+    # Order the scenarios correctly
+    orderedAsir = pd.read_csv(filename, header = 0, index_col = 0).sort_index()
+    orderedAsir.to_csv(filename, na_rep = '0.0')
 
     # Return the name of the newly processed file
-    filename = f'{communityName}{joint}{id}-asir-{summaryStat}.csv'
-    return os.path.join(simLocation, f'post-analysis/{filename}')
+    
+    return filename
