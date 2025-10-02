@@ -137,7 +137,7 @@ def epidemic(
     )
 
     orderedEpidemic = pd.read_csv(filename, header = 0).sort_index(axis = 1)
-    orderedEpidemic.to_csv(filename, na_rep = '0.0')
+    orderedEpidemic.set_index('day').to_csv(filename, na_rep = '0.0')
     return filename
 
 # Function for asir toolbox function
