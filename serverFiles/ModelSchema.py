@@ -591,10 +591,9 @@ class scenarioParameters(BaseModel):
     bcc_reduction: Optional[float] = Field(
         title = 'Background Contact Count Reduction', default = 1.0, ge = 0.0, 
         description = ((
-            'The number of other individuals that are encountered by a single '
-            'individual during the background phase of the simulation will '
-            'be multiplied by this value when a BCC reduction NPI '
-            'is in effect.'
+            'The multiplier applied to the number of contacts '
+            'encountered per individual in the background phase, '
+            'when BCC reduction NPIs are enabled in the simulation.'
         ))
     )
     bcc_reduction_trigger: Optional[TriggerCondition] = Field(
