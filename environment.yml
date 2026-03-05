@@ -5,5 +5,6 @@ channels:
 dependencies:
   - python=3.11
   - pandas=1.5.3
+  - pandas-stubs
   - fastapi
   - watchdog
