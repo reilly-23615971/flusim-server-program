@@ -5,7 +5,7 @@
 # Imports
 import logging
 from operator import attrgetter
-from typing import Annotated, Literal, Optional, Any, cast
+from typing import Annotated, Literal, Optional, Any, TypeAlias, cast
 from annotated_types import Ge, Le
 from typing_extensions import Self
 from pydantic import BaseModel, ValidationInfo, Field, model_validator, field_validator
@@ -14,7 +14,7 @@ from pydantic import BaseModel, ValidationInfo, Field, model_validator, field_va
 validationLog = logging.getLogger(__name__)
 
 # Type Definitions
-type AgeGroup = Literal[
+AgeGroup: TypeAlias = Literal[
     "young_infant",  # 0-6 months
     "infant",  # 7-24 months (0.5-2 years)
     "young_child",  # 3-5 years
@@ -26,7 +26,7 @@ type AgeGroup = Literal[
     "senior",  # 65-79 years
     "older_senior",  # 80+ years
 ]
-type TriggerCondition = Literal[
+TriggerCondition: TypeAlias = Literal[
     "none",
     "timed",
     "per_school_cases",
@@ -34,13 +34,13 @@ type TriggerCondition = Literal[
     "community_rate",
     "per_primary_high_school_cases",
 ]
-type BoosterType = Literal["primary", "booster"]
-type Kappa = Annotated[float, Ge(0)]
+BoosterType: TypeAlias = Literal["primary", "booster"]
+Kappa: TypeAlias = Annotated[float, Ge(0)]
 # The following 3 types are structurally identical, but are
 # distinguished for readability and documentation purposes
-type Proportion = Annotated[float, Ge(0), Le(1)]
-type Probability = Annotated[float, Ge(0), Le(1)]
-type EfficacyValue = Annotated[float, Ge(0), Le(1)]
+Proportion: TypeAlias = Annotated[float, Ge(0), Le(1)]
+Probability: TypeAlias = Annotated[float, Ge(0), Le(1)]
+EfficacyValue: TypeAlias = Annotated[float, Ge(0), Le(1)]
 
 # Validation constants
 parameterCategories = {
