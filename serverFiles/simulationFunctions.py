@@ -11,6 +11,7 @@ import os
 import sys
 from argparse import Namespace
 from typing import Optional
+from datetime import datetime
 
 import pandas as pd
 
@@ -24,6 +25,22 @@ sys.path.append(os.path.join(os.getcwd(), simLocation, "src/toolbox"))
 
 # Logging
 functionLog = logging.getLogger(__name__)
+
+
+def displayTime(startTime: datetime) -> str:
+    """
+    Calculates the time since a given point and displays it in mm:ss format
+
+    Parameters:
+        startTime (datetime): The point in time to measure from.
+
+    Returns:
+        str: The time between startTime and now, as a string in mm:ss format.
+    """
+    endTime = datetime.now()
+    totalTime = endTime - startTime
+    seconds = str(totalTime.seconds % 60).zfill(2)
+    return f"{totalTime.seconds // 60}:{seconds}"
 
 
 def generateToolboxConfig(id: Optional[str], joint: Optional[str]) -> str:
@@ -83,7 +100,7 @@ def runSimulation(configData: modelGuideFile, toolboxPath: str) -> list[str]:
     from logger import LogLevel
     from ToolboxConfiguration import ToolboxConfiguration
 
-    # Get toolbox config
+    runStartTime = datetime.now()
     toolboxConfig = ToolboxConfiguration(toolboxPath)
 
     # Save guide file to JSON
@@ -114,6 +131,10 @@ def runSimulation(configData: modelGuideFile, toolboxPath: str) -> list[str]:
     ]
 
     # Return required files so they can be deleted later
+    print(
+        "[runSimulation] Finished running the simulation experiment "
+        f"in {displayTime(runStartTime)}\n"
+    )
     return simFiles + [guidePath]
 
 
@@ -158,7 +179,7 @@ def epidemic(
     from logger import LogLevel
     from ToolboxConfiguration import ToolboxConfiguration
 
-    # Get toolbox config
+    epidemicStartTime = datetime.now()
     if summaryStat is None:
         summaryStat = AnalysisStat.MEDIAN
     validPath = toolboxPath if toolboxPath else f"serverFiles/toolbox_config_{id}.json"
@@ -200,6 +221,10 @@ def epidemic(
 
     orderedEpidemic = pd.read_csv(filename, header=0).sort_index(axis=1)
     orderedEpidemic.set_index("day").to_csv(filename, na_rep="0.0")
+    print(
+        "[epidemic] Finished running epidemic analysis "
+        f"in {displayTime(epidemicStartTime)}\n"
+    )
     return filename
 
 
@@ -253,7 +278,7 @@ def asir(
     from logger import LogLevel
     from ToolboxConfiguration import ToolboxConfiguration
 
-    # Get toolbox config
+    asirStartTime = datetime.now()
     if summaryStat is None:
         summaryStat = AnalysisStat.MEDIAN
     validPath = toolboxPath if toolboxPath else f"serverFiles/toolbox_config_{id}.json"
@@ -288,5 +313,5 @@ def asir(
     orderedAsir = pd.read_csv(filename, header=0, index_col=0).sort_index()
     orderedAsir.to_csv(filename, na_rep="0.0")
 
-    # Return the name of the newly processed file
+    print(f"[asir] Finished running asir analysis in {displayTime(asirStartTime)}\n")
     return filename
