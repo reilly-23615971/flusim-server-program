@@ -25,16 +25,8 @@ from serverFiles.simulationFunctions import (  # simLocation,
 # sys.path.append(os.path.join(os.getcwd(), simLocation, "src/toolbox"))
 # from analysis.AnalysisStat import AnalysisStat
 
-# Logging config (create log folder outside of project dir to avoid
-# watchfiles getting into an endless update loop)
-"""os.makedirs("../Logs", exist_ok=True)
-logging.basicConfig(
-    filename="../Logs/serverAppLogs.txt",
-    filemode="a",
-    format="%(asctime)s,%(msecs)03d %(name)s %(levelname)s %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-    level=logging.WARN,
-)"""
+# Logging config
+os.makedirs("tempFiles", exist_ok=True)
 logging.basicConfig(
     filename="tempFiles/serverAppLogs.txt",
     filemode="a",
