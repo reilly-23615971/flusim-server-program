@@ -81,7 +81,7 @@ def generateToolboxConfig(id: Optional[str], joint: Optional[str]) -> str:
     return toolboxConfigPath
 
 
-def runSimulation(configData: modelGuideFile, toolboxPath: str) -> list[str]:
+def runSimulation(configData: modelGuideFile, toolboxPath: str) -> set[str]:
     """
     Function to run a simulation experiment using the given config files
 
@@ -93,8 +93,8 @@ def runSimulation(configData: modelGuideFile, toolboxPath: str) -> list[str]:
             toolbox commands.
 
     Returns:
-        list: A list of file paths for each file created over the course of
-            running the simulation.
+        set of str: A list of file paths for each file created over the
+            course of running the simulation.
     """
     from commands.Run.RunCommand import RunCommand
     from logger import LogLevel
@@ -116,7 +116,7 @@ def runSimulation(configData: modelGuideFile, toolboxPath: str) -> list[str]:
 
     # Get list of sim files so they can be deleted once the
     # simulation and analysis are complete
-    simFiles = [
+    simFiles = {
         os.path.join(
             simLocation,
             "results",
@@ -128,14 +128,14 @@ def runSimulation(configData: modelGuideFile, toolboxPath: str) -> list[str]:
             ),
         )
         for i in range(len(configData.simulation_sets[0].simulations))
-    ]
+    }
 
     # Return required files so they can be deleted later
     print(
         "[runSimulation] Finished running the simulation experiment "
         f"in {displayTime(runStartTime)}\n"
     )
-    return simFiles + [guidePath]
+    return simFiles | {guidePath}
 
 
 def epidemic(
@@ -146,7 +146,7 @@ def epidemic(
     cumulative=False,
     byAge=False,
     toolboxPath: Optional[str] = None,
-) -> str:
+) -> set[str]:
     """
     Wrapper to run the epidemic toolbox command on a given simulation output,
     generating epidemic curves in CSV format.
@@ -172,7 +172,8 @@ def epidemic(
             for the toolbox commands.
 
     Returns:
-        str: The name of the CSV file containing the generated epidemic curve(s).
+        set of str: The names of the CSV files containing the generated
+            epidemic curve(s) before and after sorting.
     """
     from analysis.AnalysisStat import AnalysisStat
     from commands.epidemic import EpidemicCurveCommand
@@ -186,6 +187,7 @@ def epidemic(
     toolboxConfig = ToolboxConfiguration(validPath)
 
     # Run epidemic analysis
+    # TODO: Integrate other options as params if needed by the dashboard
     epidemicArgs = Namespace(
         community=[communityName],
         set=[id],
@@ -201,31 +203,31 @@ def epidemic(
         log_level=LogLevel.DEBUG,
     )
     print(
-        f'[epidemic] Running "epidemic" analysis for set {id} [{summaryStat}]',
+        f"[epidemic] Running 'epidemic' analysis for set {id}",
+        f"on community {communityName} [{summaryStat}]",
         "[cumulative]" if cumulative else "[individual]",
         "[age-separated]" if byAge else "[age-combined]",
     )
     EpidemicCurveCommand().run_command(epidemicArgs, toolboxConfig)
 
-    # Return the name of the newly processed file
-    filename = os.path.join(
-        simLocation,
-        "post-analysis",
-        (
-            (
-                f"{communityName}{joint}{id}-epidemic-"
-                f"{'cumulative-' if cumulative else ''}{summaryStat}.csv"
-            )
-        ),
+    # Rename file to account for all options and avoid overwriting previous data
+    # TODO: Update new filename if more options are configurable
+    fileStem = (
+        f"{communityName}{joint}{id}-epidemic-"
+        f"{'cumulative-' if cumulative else ''}{summaryStat}",
+    )
+    oldFilename = os.path.join(simLocation, "post-analysis", f"{fileStem}.csv")
+    newFilename = os.path.join(
+        simLocation, "post-analysis", f"{fileStem}{'-by_age' if byAge else ''}.csv"
     )
 
-    orderedEpidemic = pd.read_csv(filename, header=0).sort_index(axis=1)
-    orderedEpidemic.set_index("day").to_csv(filename, na_rep="0.0")
+    orderedEpidemic = pd.read_csv(oldFilename, header=0).sort_index(axis=1)
+    orderedEpidemic.set_index("day").to_csv(newFilename, na_rep="0.0")
     print(
         "[epidemic] Finished running epidemic analysis "
         f"in {displayTime(epidemicStartTime)}\n"
     )
-    return filename
+    return {oldFilename, newFilename}
 
 
 # Function for asir toolbox function
@@ -239,7 +241,7 @@ def asir(
     onlyPregnant=False,
     onlyVaccinated=False,
     toolboxPath: Optional[str] = None,
-) -> str:
+) -> set[str]:
     """
     Wrapper to run the asir toolbox command on a given simulation output,
     generating age-separated infection rates in CSV format.
@@ -271,7 +273,8 @@ def asir(
             for the toolbox commands.
 
     Returns:
-        str: The name of the CSV file containing the generated rates.
+        set of str: The names of the CSV files containing the generated
+            rates before and after sorting.
     """
     from analysis.AnalysisStat import AnalysisStat
     from commands.ASIRAnalysis import AsirCommand
@@ -297,21 +300,31 @@ def asir(
         log_level=LogLevel.DEBUG,
     )
     print(
-        f'[asir] Running "asir" analysis for set {id} on community '
-        f"{communityName} [{summaryStat}]",
+        f"[asir] Running 'asir' analysis for set {id}",
+        f"on community {communityName} [{summaryStat}]",
         "[proportionate]" if getProportion else "[discrete]",
         "[indigenous only]" if onlyIndigenous else "[all demographics]",
         "[pregnant only]" if onlyIndigenous else "[all pregnant status]",
         "[vaccinated only]" if onlyIndigenous else "[all vaccine status]",
     )
     AsirCommand().run_command(asirArgs, toolboxConfig)
-    filename = os.path.join(
-        simLocation, f"post-analysis/{communityName}{joint}{id}-asir-{summaryStat}.csv"
+
+    # Rename file to account for all options and avoid overwriting previous data
+    # TODO: Just modify the toolbox instead of doing this workaround
+    fileStem = f"{communityName}{joint}{id}-asir-{summaryStat}"
+    oldFilename = os.path.join(simLocation, "post-analysis", f"{fileStem}.csv")
+    newFilename = os.path.join(
+        simLocation,
+        "post-analysis",
+        f"{fileStem}{'-proportion' if getProportion else ''}"
+        f"{'-indigenous' if onlyIndigenous else ''}"
+        f"{'-pregnant' if onlyPregnant else ''}"
+        f"{'-vaccinated' if onlyVaccinated else ''}.csv",
     )
 
     # Order the scenarios correctly
-    orderedAsir = pd.read_csv(filename, header=0, index_col=0).sort_index()
-    orderedAsir.to_csv(filename, na_rep="0.0")
+    orderedAsir = pd.read_csv(oldFilename, header=0, index_col=0).sort_index()
+    orderedAsir.to_csv(newFilename, na_rep="0.0")
 
     print(f"[asir] Finished running asir analysis in {displayTime(asirStartTime)}\n")
-    return filename
+    return {oldFilename, newFilename}
