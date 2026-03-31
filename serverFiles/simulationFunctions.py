@@ -69,7 +69,7 @@ def generateToolboxConfig(id: Optional[str], joint: Optional[str]) -> str:
             {"name": "integration", "path": "integration/community"},
         ],
     }
-    toolboxConfigPath = f"serverFiles/toolbox_config_{id}.json"
+    toolboxConfigPath = f"tempFiles/toolbox_config_{id}.json"
     print(
         (
             "[generateToolboxConfig] Generating toolbox "
@@ -105,7 +105,7 @@ def runSimulation(configData: modelGuideFile, toolboxPath: str) -> set[str]:
 
     # Save guide file to JSON
     sessionID = configData.description
-    guidePath = f"serverFiles/flusim-{sessionID}.guide.json"
+    guidePath = f"tempFiles/flusim-{sessionID}.guide.json"
     with open(guidePath, "w") as file:
         file.write(configData.model_dump_json(indent=2, exclude_unset=True))
 
@@ -183,7 +183,7 @@ def epidemic(
     epidemicStartTime = datetime.now()
     if summaryStat is None:
         summaryStat = AnalysisStat.MEDIAN
-    validPath = toolboxPath if toolboxPath else f"serverFiles/toolbox_config_{id}.json"
+    validPath = toolboxPath if toolboxPath else f"tempFiles/toolbox_config_{id}.json"
     toolboxConfig = ToolboxConfiguration(validPath)
 
     # Run epidemic analysis
@@ -284,7 +284,7 @@ def asir(
     asirStartTime = datetime.now()
     if summaryStat is None:
         summaryStat = AnalysisStat.MEDIAN
-    validPath = toolboxPath if toolboxPath else f"serverFiles/toolbox_config_{id}.json"
+    validPath = toolboxPath if toolboxPath else f"tempFiles/toolbox_config_{id}.json"
     toolboxConfig = ToolboxConfiguration(validPath)
 
     # Run epidemic analysis

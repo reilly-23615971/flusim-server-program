@@ -36,7 +36,7 @@ logging.basicConfig(
     level=logging.WARN,
 )"""
 logging.basicConfig(
-    filename="serverFiles/serverAppLogs.txt",
+    filename="tempFiles/serverAppLogs.txt",
     filemode="a",
     format="%(asctime)s,%(msecs)03d %(name)s %(levelname)s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
@@ -196,7 +196,7 @@ async def runModel(config: modelGuideFile, cleanup: BackgroundTasks):
     # Zip together the analysis files if necessary
     # TODO: See if simplifying to always return zip is OK
     if len(analysisFiles) != 1:
-        zipPath = f"serverFiles/{sessionID}_analysis.zip"
+        zipPath = f"tempFiles/{sessionID}_analysis.zip"
         with zipfile.ZipFile(zipPath, mode="w") as analysis:
             for file in analysisFiles:
                 analysis.write(file)
