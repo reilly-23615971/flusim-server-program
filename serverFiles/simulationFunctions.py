@@ -146,7 +146,7 @@ def epidemic(
     cumulative=False,
     byAge=False,
     toolboxPath: Optional[str] = None,
-) -> set[str]:
+) -> tuple[list[str], set[str]]:
     """
     Wrapper to run the epidemic toolbox command on a given simulation output,
     generating epidemic curves in CSV format.
@@ -172,8 +172,11 @@ def epidemic(
             for the toolbox commands.
 
     Returns:
-        set of str: The names of the CSV files containing the generated
-            epidemic curve(s) before and after sorting.
+        list of str: The name of the CSV files containing the generated
+            epidemic curve(s), wrapped in a list to avoid issues when
+            listing the required files.
+
+        set of str: Files created by the command that must be deleted.
     """
     from analysis.AnalysisStat import AnalysisStat
     from commands.epidemic import EpidemicCurveCommand
@@ -202,9 +205,9 @@ def epidemic(
         filenames=[],
         log_level=LogLevel.DEBUG,
     )
+    print(f"[epidemic] Running 'epidemic' analysis for set {id} on community {communityName}")
     print(
-        f"[epidemic] Running 'epidemic' analysis for set {id}",
-        f"on community {communityName} [{summaryStat}]",
+        f"Options: [{summaryStat}]",
         "[cumulative]" if cumulative else "[individual]",
         "[age-separated]" if byAge else "[age-combined]",
     )
@@ -212,13 +215,13 @@ def epidemic(
 
     # Rename file to account for all options and avoid overwriting previous data
     # TODO: Update new filename if more options are configurable
-    fileStem = (
+    fileStem = str(
         f"{communityName}{joint}{id}-epidemic-"
         f"{'cumulative-' if cumulative else ''}{summaryStat}",
     )
     oldFilename = os.path.join(simLocation, "post-analysis", f"{fileStem}.csv")
     newFilename = os.path.join(
-        simLocation, "post-analysis", f"{fileStem}{'-by_age' if byAge else ''}.csv"
+        simLocation, "post-analysis", f"{fileStem}{'-by_age' if byAge else '-all_ages'}.csv"
     )
 
     orderedEpidemic = pd.read_csv(oldFilename, header=0).sort_index(axis=1)
@@ -227,7 +230,7 @@ def epidemic(
         "[epidemic] Finished running epidemic analysis "
         f"in {displayTime(epidemicStartTime)}\n"
     )
-    return {oldFilename, newFilename}
+    return [newFilename], {oldFilename, newFilename}
 
 
 # Function for asir toolbox function
@@ -241,7 +244,7 @@ def asir(
     onlyPregnant=False,
     onlyVaccinated=False,
     toolboxPath: Optional[str] = None,
-) -> set[str]:
+) -> tuple[list[str], set[str]]:
     """
     Wrapper to run the asir toolbox command on a given simulation output,
     generating age-separated infection rates in CSV format.
@@ -273,8 +276,10 @@ def asir(
             for the toolbox commands.
 
     Returns:
-        set of str: The names of the CSV files containing the generated
-            rates before and after sorting.
+        list of str: The name of the CSV file containing the generated rates,
+            wrapped in a list to avoid issues when listing the required files.
+
+        set of str: Files created by the command that must be deleted.
     """
     from analysis.AnalysisStat import AnalysisStat
     from commands.ASIRAnalysis import AsirCommand
@@ -299,9 +304,9 @@ def asir(
         filenames=[],
         log_level=LogLevel.DEBUG,
     )
+    print(f"[asir] Running 'asir' analysis for set {id} on community {communityName}")
     print(
-        f"[asir] Running 'asir' analysis for set {id}",
-        f"on community {communityName} [{summaryStat}]",
+        f"Options: [{summaryStat}]",
         "[proportionate]" if getProportion else "[discrete]",
         "[indigenous only]" if onlyIndigenous else "[all demographics]",
         "[pregnant only]" if onlyIndigenous else "[all pregnant status]",
@@ -316,10 +321,10 @@ def asir(
     newFilename = os.path.join(
         simLocation,
         "post-analysis",
-        f"{fileStem}{'-proportion' if getProportion else ''}"
-        f"{'-indigenous' if onlyIndigenous else ''}"
-        f"{'-pregnant' if onlyPregnant else ''}"
-        f"{'-vaccinated' if onlyVaccinated else ''}.csv",
+        f"{fileStem}{'-proportion' if getProportion else '-discrete'}"
+        f"{'-indigenousOnly' if onlyIndigenous else '-allDemographics'}"
+        f"{'-pregnantOnly' if onlyPregnant else '-allPregnancy'}"
+        f"{'-vaccinatedOnly' if onlyVaccinated else '-allVaccination'}.csv",
     )
 
     # Order the scenarios correctly
@@ -327,4 +332,4 @@ def asir(
     orderedAsir.to_csv(newFilename, na_rep="0.0")
 
     print(f"[asir] Finished running asir analysis in {displayTime(asirStartTime)}\n")
-    return {oldFilename, newFilename}
+    return [newFilename], {oldFilename, newFilename}
