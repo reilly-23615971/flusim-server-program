@@ -341,6 +341,18 @@ class scenarioParameters(BaseModel):
             )
         ),
     )
+    prob_icu: Optional[Probability] = Field(
+        title="ICU Visit Probability",
+        default=0.0005,
+        description=(
+            (
+                "The probability of an infected individual visiting a hospital's "
+                "Intensive Care Unit as a result of the disease. This parameter "
+                "is not used in the simulation itself, but is included to aid in "
+                "dashboard functions."
+            )
+        ),
+    )
     prob_diagnosis: Optional[Probability] = Field(
         title="Diagnosis Probability",
         default=0.5,
@@ -348,6 +360,18 @@ class scenarioParameters(BaseModel):
             (
                 "The probability of an infected individual being formally "
                 "diagnosed as a case after becoming symptomatic."
+            )
+        ),
+    )
+    prob_gp: Optional[Probability] = Field(
+        title="GP Visit Probability",
+        default=0.17,
+        description=(
+            (
+                "The probability of an infected individual visiting a general "
+                "practitioner regarding symptoms of the disease. This parameter "
+                "is not used in the simulation itself, but is included to aid in "
+                "dashboard functions."
             )
         ),
     )

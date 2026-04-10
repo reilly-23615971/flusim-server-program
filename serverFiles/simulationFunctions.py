@@ -205,7 +205,10 @@ def epidemic(
         filenames=[],
         log_level=LogLevel.DEBUG,
     )
-    print(f"[epidemic] Running 'epidemic' analysis for set {id} on community {communityName}")
+    print(
+        "[epidemic] Running 'epidemic' analysis for "
+        f"set {id} on community {communityName}"
+    )
     print(
         f"Options: [{summaryStat}]",
         "[cumulative]" if cumulative else "[individual]",
@@ -221,7 +224,9 @@ def epidemic(
     )
     oldFilename = os.path.join(simLocation, "post-analysis", f"{fileStem}.csv")
     newFilename = os.path.join(
-        simLocation, "post-analysis", f"{fileStem}{'-by_age' if byAge else '-all_ages'}.csv"
+        simLocation,
+        "post-analysis",
+        f"{fileStem}{'-by_age' if byAge else '-all_ages'}.csv",
     )
 
     orderedEpidemic = pd.read_csv(oldFilename, header=0).sort_index(axis=1)
@@ -309,8 +314,8 @@ def asir(
         f"Options: [{summaryStat}]",
         "[proportionate]" if getProportion else "[discrete]",
         "[indigenous only]" if onlyIndigenous else "[all demographics]",
-        "[pregnant only]" if onlyIndigenous else "[all pregnant status]",
-        "[vaccinated only]" if onlyIndigenous else "[all vaccine status]",
+        "[pregnant only]" if onlyPregnant else "[all pregnant status]",
+        "[vaccinated only]" if onlyVaccinated else "[all vaccine status]",
     )
     AsirCommand().run_command(asirArgs, toolboxConfig)
 
