@@ -2325,4 +2325,4 @@ class modelGuideFile(BaseModel):
         """
         Function that ensures non-baseline parameters can default to baseline values.
         """
-        return value[0].model_dump(exclude_unset=True)
+        return [item.model_dump(exclude_unset=True) for item in value]
