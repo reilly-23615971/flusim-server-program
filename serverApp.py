@@ -151,53 +151,38 @@ async def runModel(config: modelGuideFile, cleanup: BackgroundTasks):
     # for now, just get the standard analyses the dashboard uses
 
     # Daily infection epidemic curve
-    analysisFiles += (
-        files := epidemic(
-            community, middleJoint, sessionID, cumulative=True, toolboxPath=toolboxPath
-        )
-    )[0]
-    createdFiles |= files[1]
+    analysisFiles += epidemic(
+        community, middleJoint, sessionID, cumulative=True, toolboxPath=toolboxPath
+    )
 
     # Cumulative infection epidemic curve
-    analysisFiles += (
-        files := epidemic(
-            community,
-            middleJoint,
-            sessionID,
-            cumulative=False,
-            toolboxPath=toolboxPath,
-        )
-    )[0]
-    createdFiles |= files[1]
+    analysisFiles += epidemic(
+        community,
+        middleJoint,
+        sessionID,
+        cumulative=False,
+        toolboxPath=toolboxPath,
+    )
 
     # Age-separated infection rates
-    analysisFiles += (
-        files := asir(community, middleJoint, sessionID, toolboxPath=toolboxPath)
-    )[0]
-    createdFiles |= files[1]
+    analysisFiles += asir(community, middleJoint, sessionID, toolboxPath=toolboxPath)
 
     # Vaccinated age-separated infection rates
     if middleJoint and "+vaccine" in middleJoint:
-        analysisFiles += (
-            files := asir(
-                community,
-                middleJoint,
-                sessionID,
-                onlyVaccinated=True,
-                toolboxPath=toolboxPath,
-            )
-        )[0]
-        createdFiles |= files[1]
+        analysisFiles += asir(
+            community,
+            middleJoint,
+            sessionID,
+            onlyVaccinated=True,
+            toolboxPath=toolboxPath,
+        )
 
     # If all else fails and no analyses were specified, run epidemic
     if not analysisFiles:
         print("No analyses specified; defaulting to epidemic")
-        analysisFiles += (
-            files := epidemic(
-                community, middleJoint, sessionID, toolboxPath=toolboxPath
-            )
-        )[0]
-        createdFiles |= files[1]
+        analysisFiles += epidemic(
+            community, middleJoint, sessionID, toolboxPath=toolboxPath
+        )
 
     print("\nAnalysis files:")
     for file in analysisFiles:
@@ -219,7 +204,7 @@ async def runModel(config: modelGuideFile, cleanup: BackgroundTasks):
     # Schedule files created here to be removed
     # TODO: Also delete files if an error occurs
     if deleteFiles:
-        cleanup.add_task(clearFiles, createdFiles | {toolboxPath})
+        cleanup.add_task(clearFiles, createdFiles | {toolboxPath}.union(analysisFiles))
 
     print(
         f"\nSimulation request for session {sessionID} complete in "

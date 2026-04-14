@@ -5,10 +5,18 @@
 # Imports
 import logging
 from operator import attrgetter
-from typing import Annotated, Literal, Optional, Any, TypeAlias, cast
-from annotated_types import Ge, Le
+from typing import Annotated, Any, Literal, Optional, TypeAlias, cast
+
+from annotated_types import Ge, Le, Len
+from pydantic import (
+    BaseModel,
+    Field,
+    ValidationInfo,
+    field_serializer,
+    field_validator,
+    model_validator,
+)
 from typing_extensions import Self
-from pydantic import BaseModel, ValidationInfo, Field, model_validator, field_validator
 
 # Logging
 validationLog = logging.getLogger(__name__)
@@ -42,6 +50,11 @@ Proportion: TypeAlias = Annotated[float, Ge(0), Le(1)]
 Probability: TypeAlias = Annotated[float, Ge(0), Le(1)]
 EfficacyValue: TypeAlias = Annotated[float, Ge(0), Le(1)]
 
+# Vaccination priority is defined in advance for type checking purposes
+vaccinePriorityDefault: list[
+    Literal["elderly", "healthcare", "essential_workers", "other"]
+] = ["elderly", "healthcare", "essential_workers", "other"]
+
 # Validation constants
 parameterCategories = {
     "Scenario_CrossImmunity": ["FromStrainId", "ToStrainId"],
@@ -62,6 +75,7 @@ parameterGetters = {
 
 
 # Parameter Models
+# TODO: More validation to ensure the dashboard can use this
 
 
 # Set of scenario parameters set collectively for all age groups
@@ -964,7 +978,7 @@ class scenarioParameters(BaseModel):
     vaccination_priority: Optional[
         list[Literal["elderly", "healthcare", "essential_workers", "other"]]
     ] = Field(
-        default=["elderly", "healthcare", "essential_workers", "other"],
+        default=vaccinePriorityDefault,
         title="Vaccination Priority",
         description=(
             (
@@ -1786,9 +1800,16 @@ class vaccineEfficacy(BaseModel):
         ),
     )
 
-    # Efficacy should be list for primary and single value for booster
     @model_validator(mode="after")
     def efficacyValidation(self) -> Self:
+        """
+        Function to validate parameter sets by ensuring that vaccine efficacy
+        is a list for primary vaccines and a single value for booster vaccines.
+
+        Raises:
+            ValueError: If the type of `Efficacy` is incorrect for the
+                specified `DoseType` value.
+        """
         try:
             if self.DoseType == "primary" and not isinstance(self.Efficacy, list):
                 raise ValueError(
@@ -1902,7 +1923,18 @@ class Parameters(BaseModel):
         description=("Parameters defining the efficacy of different vaccine doses."),
     )
 
-    # Wrap solo entries in list-based parameters
+    @field_serializer(
+        "Scenario_SeededNaturalImmunity",
+        "Scenario_VaccineCoverage",
+        "Scenario_VaccineDoseEfficacy",
+        mode="plain",
+    )
+    def nullAgeSerialize(self, value):
+        """
+        Function to ensure that age fields where `None` is meaningful are never omitted
+        """
+        return [item.model_dump(exclude_none=False) for item in value]
+
     @field_validator(
         "Scenario_CrossImmunity",
         "Scenario_DynamicIntervention",
@@ -1915,13 +1947,15 @@ class Parameters(BaseModel):
     )
     @classmethod
     def listify(cls, value: Any) -> Optional[list]:
+        """
+        Validation function to automatically convert single parameter
+        objects into lists.
+        """
         if value is not None and not isinstance(value, list):
             return [value]
         else:
             return value
 
-    # Prevent duplicate entries in list-based parameters
-    # (e.g. 2 Scenario_Strain objects with the same StrainId)
     @field_validator(
         "Scenario_CrossImmunity",
         "Scenario_SeededNaturalImmunity",
@@ -1935,6 +1969,14 @@ class Parameters(BaseModel):
     def noDuplicateCategories(
         cls, value: Optional[list[Any]], info: ValidationInfo
     ) -> Optional[list[Any]]:
+        """
+        Validation function to remove duplicate parameter classes that cover
+        the same element in the simulation (e.g. two `Scenario_Strain` objects
+        with the same `StrainId`).
+
+        Raises:
+            AssertionError: If there are duplicate parameter classes.
+        """
         try:
             if value is None or info.field_name is None:
                 return value
@@ -1954,7 +1996,7 @@ class Parameters(BaseModel):
                     or info.field_name == "Scenario_VaccineDoseEfficacy"
                 ):
                     clearValues = [
-                        (first, "All Ages" if second is None else second)
+                        first + ("All Ages" if second is None else second)
                         for first, second in duplicateValues
                     ]
                 else:
@@ -1983,9 +2025,16 @@ class Parameters(BaseModel):
     class Config:
         validate_assignment = True
 
-    # Ensure the right number of efficacies for primary vaccines are defined
     @model_validator(mode="after")
-    def efficacyCount(self, info: ValidationInfo) -> Self:
+    def efficacyCount(self) -> Self:
+        """
+        Validation function to ensure that the number of doses matches
+        the number of defined efficacy values.
+
+        Raises:
+            ValueError: If the length of `Efficacy` does not match the primary
+                dose count.
+        """
         if self.Scenario_VaccineDose and self.Scenario_VaccineDoseEfficacy:
             primaryDose = next(
                 (
@@ -2101,10 +2150,13 @@ class simulationSet(BaseModel):
         title="Simulations", description=("A list of scenarios to run in this set.")
     )
 
-    # Wrap solo simulations in list
     @field_validator("simulations", mode="before")
     @classmethod
     def listify(cls, value: Any) -> Optional[list]:
+        """
+        Validation function to automatically convert single simulation
+        objects into lists.
+        """
         if value is not None and not isinstance(value, list):
             return [value]
         else:
@@ -2137,7 +2189,7 @@ class modelGuideFile(BaseModel):
             )
         ),
     )
-    community_used: list[str] = Field(
+    community_used: Annotated[list[str], Len(min_length=1)] = Field(
         title="Communities Used",
         default=["newcastle"],
         description=(
@@ -2178,13 +2230,99 @@ class modelGuideFile(BaseModel):
         description=("A list of sets containing scenarios to run together."),
     )
 
-    # Wrap solo overrides/simulation sets in list
     @field_validator(
         "community_overrides", "override_templates", "simulation_sets", mode="before"
     )
     @classmethod
     def listify(cls, value: Any) -> Optional[list]:
+        """
+        Validation function to automatically convert single override objects into lists.
+        """
         if value is not None and not isinstance(value, list):
             return [value]
         else:
             return value
+
+    @model_validator(mode="after")
+    def communityMatch(self) -> Self:
+        """
+        Validation function to ensure communities in `community_overrides` are
+        ones present in `community_used`.
+
+        Raises:
+            ValueError: If `community_overrides` includes communities not in
+                `community_used`.
+        """
+        validCommunities = self.community_used
+        if self.community_overrides:
+            for override in self.community_overrides:
+                if override.name not in validCommunities:
+                    raise ValueError(
+                        """
+                        `community_overrides` includes communities not present in
+                        `community_used`. Ensure the `name` property of each
+                        override in `community_overrides` matches a community
+                        in `community_used`.
+                        """
+                    )
+        return self
+
+    """
+    Below are field serializers used to format the parameter schema for how
+    they are used by the dashboard. This means that community_overrides is used
+    for command arguments, shared_overrides is used for the baseline scenario
+    and all other parameters are part of simulation sets; the baseline defines
+    as many parameters as possible while the others leave out unset parameters
+    so they can default to the baseline. If you are using this schema for a
+    different purpose and these serializers interfere with generating properly
+    formatted files, feel free to disable them.
+    """
+
+    @field_serializer("shared_overrides", mode="plain", when_used="json-unless-none")
+    def baselineSerialize(self, value):
+        """
+        Function that ensures the baseline scenario's parameters are all
+        included in JSON serialisations.
+        """
+        # TODO: Test these params (besides start day of week) to see which are
+        # totally unused and which can be added to the dashboard
+        # (also vaccination_trigger and friends!)
+        excludedParams = {
+            "parameters": {
+                "Scenario_Parameter": {
+                    "start_day_of_week",
+                    "kappa_adult_education",
+                    "kappa_child_care",
+                    "kappa_hospital",
+                    "withdrawal_period",
+                    "hospitalisation_rate",
+                    "max_adult_class_size",
+                    "max_neighbourgroup_size",
+                    "max_churchgroup_size",
+                    "max_class_count",
+                    "pandemic_alert",
+                    "close_childcare",
+                    "close_child_education",
+                    "close_adult_education",
+                    "prob_work_nonattendance",
+                    "work_nonattendance_trigger",
+                    "work_nonattendance_relaxation",
+                    "work_nonattendance_delay",
+                    "work_nonattendance_duration",
+                    "vaccination_priority",
+                }
+            }
+        }
+        return value.model_dump(exclude_none=True, exclude=excludedParams)
+
+    @field_serializer(
+        "community_overrides",
+        "simulation_sets",
+        mode="plain",
+        when_used="json-unless-none",
+    )
+    def scenarioSerialize(self, value):
+        """
+        Function that ensures non-baseline parameters can default to baseline values.
+        """
+        return value[0].model_dump(exclude_unset=True)

@@ -10,8 +10,8 @@ import logging
 import os
 import sys
 from argparse import Namespace
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 
 import pandas as pd
 
@@ -146,7 +146,7 @@ def epidemic(
     cumulative=False,
     byAge=False,
     toolboxPath: Optional[str] = None,
-) -> tuple[list[str], set[str]]:
+) -> list[str]:
     """
     Wrapper to run the epidemic toolbox command on a given simulation output,
     generating epidemic curves in CSV format.
@@ -175,8 +175,6 @@ def epidemic(
         list of str: The name of the CSV files containing the generated
             epidemic curve(s), wrapped in a list to avoid issues when
             listing the required files.
-
-        set of str: Files created by the command that must be deleted.
     """
     from analysis.AnalysisStat import AnalysisStat
     from commands.epidemic import EpidemicCurveCommand
@@ -228,14 +226,14 @@ def epidemic(
         "post-analysis",
         f"{fileStem}{'-by_age' if byAge else '-all_ages'}.csv",
     )
-
-    orderedEpidemic = pd.read_csv(oldFilename, header=0).sort_index(axis=1)
+    os.rename(oldFilename, newFilename)
+    orderedEpidemic = pd.read_csv(newFilename, header=0).sort_index(axis=1)
     orderedEpidemic.set_index("day").to_csv(newFilename, na_rep="0.0")
     print(
         "[epidemic] Finished running epidemic analysis "
         f"in {displayTime(epidemicStartTime)}\n"
     )
-    return [newFilename], {oldFilename, newFilename}
+    return [newFilename]
 
 
 # Function for asir toolbox function
@@ -249,7 +247,7 @@ def asir(
     onlyPregnant=False,
     onlyVaccinated=False,
     toolboxPath: Optional[str] = None,
-) -> tuple[list[str], set[str]]:
+) -> list[str]:
     """
     Wrapper to run the asir toolbox command on a given simulation output,
     generating age-separated infection rates in CSV format.
@@ -283,8 +281,6 @@ def asir(
     Returns:
         list of str: The name of the CSV file containing the generated rates,
             wrapped in a list to avoid issues when listing the required files.
-
-        set of str: Files created by the command that must be deleted.
     """
     from analysis.AnalysisStat import AnalysisStat
     from commands.ASIRAnalysis import AsirCommand
@@ -331,10 +327,11 @@ def asir(
         f"{'-pregnantOnly' if onlyPregnant else '-allPregnancy'}"
         f"{'-vaccinatedOnly' if onlyVaccinated else '-allVaccination'}.csv",
     )
+    os.rename(oldFilename, newFilename)
 
     # Order the scenarios correctly
-    orderedAsir = pd.read_csv(oldFilename, header=0, index_col=0).sort_index()
+    orderedAsir = pd.read_csv(newFilename, header=0, index_col=0).sort_index()
     orderedAsir.to_csv(newFilename, na_rep="0.0")
 
     print(f"[asir] Finished running asir analysis in {displayTime(asirStartTime)}\n")
-    return [newFilename], {oldFilename, newFilename}
+    return [newFilename]
