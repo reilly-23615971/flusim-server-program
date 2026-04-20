@@ -102,6 +102,14 @@ async def updateStatus(taskID: str, state: str):
     print(f"Updated simulation {taskID} to state {state}")  # TODO: DEBUG
     # TODO: Determine if progress should be calculated here or by the client
     # TODO: Include time taken?
+    # Broadcast to connected WebSockets
+    if taskID in activeClients:
+        message = {"status": state}
+        for websocket in activeClients[taskID]:
+            try:
+                await websocket.send_json(message)
+            except Exception:
+                pass  # Ignore disconnected clients
 
 
 # Define task for receiving model parameters
