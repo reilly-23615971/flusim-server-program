@@ -212,6 +212,8 @@ def epidemic(
         "[cumulative]" if cumulative else "[individual]",
         "[age-separated]" if byAge else "[age-combined]",
     )
+    # TODO: See if EpidemicCurveCommand can be modified/overloaded to
+    # call updateStatus after each simulation in the set
     EpidemicCurveCommand().run_command(epidemicArgs, toolboxConfig)
 
     # Rename file to account for all options and avoid overwriting previous data
