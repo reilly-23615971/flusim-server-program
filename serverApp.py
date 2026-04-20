@@ -88,12 +88,12 @@ def clearFiles(files: set[str]):
             print(" (not found)")
 
 
-async def updateStatus(taskID: int, state: str):
+async def updateStatus(taskID: str, state: str):
     """
     Simple async function to update the returned status of a server operation.
 
     Parameters:
-        taskID (int): The ID signifying this particular task.
+        taskID (str): The ID signifying this particular task.
 
         state (str): The state to set the task to.
     """
@@ -104,13 +104,13 @@ async def updateStatus(taskID: int, state: str):
 
 
 # Define task for receiving model parameters
-async def runModel(simulationID: int, config: modelGuideFile):
+async def runModel(simulationID: str, config: modelGuideFile):
     """
     Async function to run a simulation experiment based on parameters
     from the dashboard, then zip the analysed statistics.
 
     Parameters:
-        simulationID (int): The ID distinguishing this simulation task.
+        simulationID (str): The ID distinguishing this simulation task.
 
         config (modelGuideFile): The parameters and other settings that
             will define the simulation experiment.
@@ -132,7 +132,7 @@ async def runModel(simulationID: int, config: modelGuideFile):
         print(f"Toolbox file located at {toolboxPath}")
 
         # Run the Flusim simulation
-        createdFiles = runSimulation(config, toolboxPath)
+        createdFiles = await asyncio.to_thread(runSimulation, config, toolboxPath)
         analysisFiles = []
 
         # TODO: Use middle joint to determine analyses to run
@@ -170,39 +170,31 @@ async def runModel(simulationID: int, config: modelGuideFile):
         # for now, just get the standard analyses the dashboard uses
 
         # Daily infection epidemic curve
-        analysisFiles += epidemic(
-            community, middleJoint, sessionID, cumulative=True, toolboxPath=toolboxPath
+        analysisFiles += await asyncio.to_thread(
+            epidemic, community, middleJoint, sessionID, cumulative=True, toolboxPath=toolboxPath
         )
 
         # Cumulative infection epidemic curve
-        analysisFiles += epidemic(
-            community,
-            middleJoint,
-            sessionID,
-            cumulative=False,
-            toolboxPath=toolboxPath,
+        analysisFiles += await asyncio.to_thread(
+            epidemic, community, middleJoint, sessionID, cumulative=False, toolboxPath=toolboxPath
         )
 
         # Age-separated infection rates
-        analysisFiles += asir(
-            community, middleJoint, sessionID, toolboxPath=toolboxPath
+        analysisFiles += await asyncio.to_thread(
+            asir, community, middleJoint, sessionID, toolboxPath=toolboxPath
         )
 
         # Vaccinated age-separated infection rates
         if middleJoint and "+vaccine" in middleJoint:
-            analysisFiles += asir(
-                community,
-                middleJoint,
-                sessionID,
-                onlyVaccinated=True,
-                toolboxPath=toolboxPath,
+            analysisFiles += await asyncio.to_thread(
+                asir, community, middleJoint, sessionID, onlyVaccinated=True, toolboxPath=toolboxPath
             )
 
         # If all else fails and no analyses were specified, run epidemic
         if not analysisFiles:
             print("No analyses specified; defaulting to epidemic")
-            analysisFiles += epidemic(
-                community, middleJoint, sessionID, toolboxPath=toolboxPath
+            analysisFiles += await asyncio.to_thread(
+                epidemic, community, middleJoint, sessionID, toolboxPath=toolboxPath
             )
 
         print("\nAnalysis files:")
@@ -241,7 +233,7 @@ async def runModel(simulationID: int, config: modelGuideFile):
 
 # Define route for receiving model parameters
 @flusimApp.post("/runModel")
-async def runModelRoute(config: modelGuideFile) -> dict[str, int]:
+async def runModelRoute(config: modelGuideFile) -> dict[str, str]:
     """
     Async route function to begin a simulation experiment and give the
     dashboard an ID to poll for status updates.
@@ -256,7 +248,7 @@ async def runModelRoute(config: modelGuideFile) -> dict[str, int]:
             directly as an int to ensure corrupted data is not read by the
             dashboard client.
     """
-    simulationID = uuid.uuid4().int
+    simulationID = str(uuid.uuid4())
 
     asyncio.create_task(runModel(simulationID, config))
 
@@ -264,12 +256,12 @@ async def runModelRoute(config: modelGuideFile) -> dict[str, int]:
 
 
 @flusimApp.get("/runModel/status/{simulationID}")
-async def getSimulationStatus(simulationID: int):
+async def getSimulationStatus(simulationID: str):
     """
     Async route function to check the current progress of a simulation experiment.
 
     Parameters:
-        simulationID (int): The ID distinguishing this simulation task.
+        simulationID (str): The ID distinguishing this simulation task.
 
     Returns:
         dict: A dictionary containing the ID assigned to this particular
@@ -277,16 +269,18 @@ async def getSimulationStatus(simulationID: int):
             directly as an int to allow for error messages to be sent if the
             task does not exist.
     """
-    return simulationStatus.get(simulationID, {"error": "Task not found"})
+    if simulationID not in simulationStatus:
+        return {"error": "Task not found"}
+    return {"status": simulationStatus[simulationID]}
 
 
 @flusimApp.get("/runModel/download/{simulationID}")
-async def downloadSimulationResults(simulationID: int, cleanup: BackgroundTasks):
+async def downloadSimulationResults(simulationID: str, cleanup: BackgroundTasks):
     """
     Async route function to obtain the results of a simulation experiment.
 
     Parameters:
-        simulationID (int): The ID distinguishing this simulation task.
+        simulationID (str): The ID distinguishing this simulation task.
 
         cleanup (BackgroundTasks): An object that will have file removal
             functions attached to it to remove excess files once this
