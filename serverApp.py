@@ -78,6 +78,7 @@ def clearFiles(files: set[str]):
         files (set of str): A list of paths to files that must be removed.
     """
     # TODO: Add short delay if necessary for file downloads
+    # TODO: Make sure files are deleted some time after a websocket breaks
     print("[clearFiles] Deleting the following files for cleanup purposes:")
     for f in files:
         print("   ", f, end="")
@@ -125,6 +126,7 @@ async def runModel(simulationID: str, config: modelGuideFile):
             will define the simulation experiment.
     """
     try:
+        # TODO: early updates come before the websocket opens; account for this
         overallStartTime = datetime.now()
         await updateStatus(simulationID, "start")
         # TODO: More status updates
