@@ -133,26 +133,12 @@ async def runSimulation(configData: modelGuideFile, toolboxPath: str, simulation
     from ToolboxConfiguration import ToolboxConfiguration
 
     runStartTime = datetime.now()
-
-    def preambleFull():
-        toolboxConfig = ToolboxConfiguration(toolboxPath)
-        sessionID = configData.description
-        guidePath = f"tempFiles/flusim-{sessionID}.guide.json"
-        with open(guidePath, "w") as file:
-            file.write(configData.model_dump_json(indent=2, exclude_unset=True))
-
-        return toolboxConfig, guidePath
-
-    toolboxConfig, guidePath = await asyncio.to_thread(preambleFull)
-
-    '''runStartTime = datetime.now()
     toolboxConfig = ToolboxConfiguration(toolboxPath)
 
-    # Save guide file to JSON
     sessionID = configData.description
     guidePath = f"tempFiles/flusim-{sessionID}.guide.json"
     with open(guidePath, "w") as file:
-        file.write(configData.model_dump_json(indent=2, exclude_unset=True))'''
+        file.write(configData.model_dump_json(indent=2, exclude_unset=True))
 
     # Run the simulation
     await RunCommand(simulationID=simulationID).run_command(

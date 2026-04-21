@@ -3,6 +3,7 @@
 # Replacements for Flusim toolbox modules that integrate the dashboard better
 
 # Imports
+import asyncio
 import datetime
 import logging
 import os
@@ -43,10 +44,11 @@ class RunCommand:
         queue_builder = ScenarioBuilder(config, args.guide)
         for index, scenario in enumerate(queue_builder.generateScenarios()):
             # Update status for dashboard
+            # TODO: Go deeper; convert the percentage in the terminal to status
             if self.simulationID is not None:
                 overrideLog.info(f"\n\nAbout to run simulation number {index}\n\n")
                 await updateStatus(self.simulationID, f"runningSim{index}")
-            scenario.run()
+            await asyncio.to_thread(scenario.run)
         duration = time.monotonic() - startTime
         formattedDuration = str(datetime.timedelta(seconds=round(duration)))
         overrideLog.info("All simulations completed in " + formattedDuration)
