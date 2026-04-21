@@ -3,7 +3,6 @@
 # Functions for running the Flusim simulation
 
 # Imports
-import asyncio
 import json
 import logging
 import os
@@ -52,7 +51,9 @@ async def updateStatus(taskID: str, state: str):
                 await websocket.send_json(message)
                 functionLog.info(f"Status for {taskID} updated to {message}\n")
             except Exception:
-                functionLog.error(f"Status for {taskID} wasn't updated to {message} for some reason\n")
+                functionLog.error(
+                    f"Status for {taskID} wasn't updated to {message} for some reason\n"
+                )
                 pass  # Ignore disconnected clients
 
 
@@ -110,7 +111,9 @@ def generateToolboxConfig(id: Optional[str], joint: Optional[str]) -> str:
     return toolboxConfigPath
 
 
-async def runSimulation(configData: modelGuideFile, toolboxPath: str, simulationID: str) -> set[str]:
+async def runSimulation(
+    configData: modelGuideFile, toolboxPath: str, simulationID: str
+) -> set[str]:
     """
     Function to run a simulation experiment using the given config files
 

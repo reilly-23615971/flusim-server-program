@@ -5,7 +5,6 @@
 import asyncio
 import logging
 import os
-import time
 import uuid
 import zipfile
 from datetime import datetime
@@ -233,7 +232,7 @@ async def runModel(simulationID: str, config: modelGuideFile):
 
         await updateStatus(simulationID, "completed")
     except Exception as e:
-        # TODO: Update error status
+        # TODO: Add more info to errors like this
         await updateStatus(simulationID, "error")
         print(f"Error while running simulation {simulationID}:\n{e}")
 

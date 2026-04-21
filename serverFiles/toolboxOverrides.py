@@ -44,10 +44,12 @@ class RunCommand:
         queue_builder = ScenarioBuilder(config, args.guide)
         for index, scenario in enumerate(queue_builder.generateScenarios()):
             # Update status for dashboard
-            # TODO: Go deeper; convert the percentage in the terminal to status
             if self.simulationID is not None:
                 overrideLog.info(f"\n\nAbout to run simulation number {index}\n\n")
                 await updateStatus(self.simulationID, f"runningSim{index}")
+            # Note that the progress bar generated in the terminal is part of
+            # the simulator's C++ code, so using it for dashboard progress
+            # would be difficult
             await asyncio.to_thread(scenario.run)
         duration = time.monotonic() - startTime
         formattedDuration = str(datetime.timedelta(seconds=round(duration)))
