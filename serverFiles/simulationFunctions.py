@@ -263,8 +263,10 @@ def epidemic(
         f"{fileStem}{'-by_age' if byAge else '-all_ages'}.csv",
     )
     os.rename(oldFilename, newFilename)
-    orderedEpidemic = pd.read_csv(newFilename, header=0).sort_index(axis=1)
-    orderedEpidemic.set_index("day").to_csv(newFilename, na_rep="0.0")
+    orderedEpidemic = pd.read_csv(newFilename, header=0).sort_index(axis=1).set_index("day")
+    if cumulative:
+        orderedEpidemic = orderedEpidemic.ffill()
+    orderedEpidemic.to_csv(newFilename, na_rep="0.0")
     print(
         "[epidemic] Finished running epidemic analysis "
         f"in {displayTime(epidemicStartTime)}\n"
