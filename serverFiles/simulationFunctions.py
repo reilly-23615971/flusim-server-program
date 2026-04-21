@@ -3,6 +3,7 @@
 # Functions for running the Flusim simulation
 
 # Imports
+import asyncio
 import json
 import logging
 import os
@@ -25,9 +26,9 @@ sys.path.append(os.path.join(os.getcwd(), simLocation, "src/toolbox"))
 functionLog = logging.getLogger(__name__)
 
 # Dictionaries for storing the status of tasks
-simulationStatus = {}
-completedSimulations = {}
-activeClients = {}
+simulationStatus = dict()
+completedSimulations = dict()
+activeClients = dict()
 
 
 async def updateStatus(taskID: str, state: str):
@@ -49,7 +50,9 @@ async def updateStatus(taskID: str, state: str):
         for websocket in activeClients[taskID]:
             try:
                 await websocket.send_json(message)
+                functionLog.info(f"Status for {taskID} updated to {message}\n")
             except Exception:
+                functionLog.error(f"Status for {taskID} wasn't updated to {message} for some reason\n")
                 pass  # Ignore disconnected clients
 
 
@@ -107,7 +110,7 @@ def generateToolboxConfig(id: Optional[str], joint: Optional[str]) -> str:
     return toolboxConfigPath
 
 
-async def runSimulation(configData: modelGuideFile, toolboxPath: str) -> set[str]:
+async def runSimulation(configData: modelGuideFile, toolboxPath: str, simulationID: str) -> set[str]:
     """
     Function to run a simulation experiment using the given config files
 
@@ -118,26 +121,41 @@ async def runSimulation(configData: modelGuideFile, toolboxPath: str) -> set[str
         toolboxPath (str): The path to the file containing settings for the
             toolbox commands.
 
+        simulationID (str): The ID distinguishing this simulation task.
+
     Returns:
         set of str: A list of file paths for each file created over the
             course of running the simulation.
     """
     # from commands.Run.RunCommand import RunCommand
-    from toolboxOverrides import RunCommand
+    from serverFiles.toolboxOverrides import RunCommand
     from logger import LogLevel
     from ToolboxConfiguration import ToolboxConfiguration
 
     runStartTime = datetime.now()
+
+    def preambleFull():
+        toolboxConfig = ToolboxConfiguration(toolboxPath)
+        sessionID = configData.description
+        guidePath = f"tempFiles/flusim-{sessionID}.guide.json"
+        with open(guidePath, "w") as file:
+            file.write(configData.model_dump_json(indent=2, exclude_unset=True))
+
+        return toolboxConfig, guidePath
+
+    toolboxConfig, guidePath = await asyncio.to_thread(preambleFull)
+
+    '''runStartTime = datetime.now()
     toolboxConfig = ToolboxConfiguration(toolboxPath)
 
     # Save guide file to JSON
     sessionID = configData.description
     guidePath = f"tempFiles/flusim-{sessionID}.guide.json"
     with open(guidePath, "w") as file:
-        file.write(configData.model_dump_json(indent=2, exclude_unset=True))
+        file.write(configData.model_dump_json(indent=2, exclude_unset=True))'''
 
     # Run the simulation
-    await RunCommand().run_command(
+    await RunCommand(simulationID=simulationID).run_command(
         Namespace(guide=guidePath, log_level=LogLevel.DEBUG), toolboxConfig
     )
 

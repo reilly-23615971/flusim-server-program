@@ -39,7 +39,7 @@ logging.basicConfig(
     filemode="a",
     format="%(asctime)s,%(msecs)03d %(name)s %(levelname)s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
-    level=logging.WARN,
+    level=logging.DEBUG,
 )
 
 # Throw error if Flusim files aren't present
@@ -103,7 +103,7 @@ async def runModel(simulationID: str, config: modelGuideFile):
     """
     try:
         # Wait 1 second for the websocket to connect
-        time.sleep(1)
+        await asyncio.sleep(1)
         overallStartTime = datetime.now()
 
         # Get relevant attributes from config file
@@ -119,9 +119,7 @@ async def runModel(simulationID: str, config: modelGuideFile):
         print(f"Toolbox file located at {toolboxPath}")
 
         # Run the Flusim simulation
-        createdFiles: set[str] = await asyncio.to_thread(
-            runSimulation, config, toolboxPath
-        )  # type: ignore
+        createdFiles: set[str] = await runSimulation(config, toolboxPath, simulationID)
         analysisFiles = []
 
         # TODO: Use middle joint to determine analyses to run

@@ -44,6 +44,7 @@ class RunCommand:
         for index, scenario in enumerate(queue_builder.generateScenarios()):
             # Update status for dashboard
             if self.simulationID is not None:
+                overrideLog.info(f"\n\nAbout to run simulation number {index}\n\n")
                 await updateStatus(self.simulationID, f"runningSim{index}")
             scenario.run()
         duration = time.monotonic() - startTime
