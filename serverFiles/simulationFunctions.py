@@ -2,8 +2,6 @@
 # Developed by Reilly Evans
 # Functions for running the Flusim simulation
 
-# Note that this file assumes it's just outside the smrg-flusim folder
-
 # Imports
 import json
 import logging
@@ -25,6 +23,34 @@ sys.path.append(os.path.join(os.getcwd(), simLocation, "src/toolbox"))
 
 # Logging
 functionLog = logging.getLogger(__name__)
+
+# Dictionaries for storing the status of tasks
+simulationStatus = {}
+completedSimulations = {}
+activeClients = {}
+
+
+async def updateStatus(taskID: str, state: str):
+    """
+    Simple async function to update the returned status of a server operation.
+
+    Parameters:
+        taskID (str): The ID signifying this particular task.
+
+        state (str): The state to set the task to.
+    """
+    # TODO: Determine if progress should be calculated here or by the client
+    # TODO: Include time taken?
+    simulationStatus[taskID] = state
+
+    # Broadcast to connected WebSockets
+    if taskID in activeClients:
+        message = {"status": state}
+        for websocket in activeClients[taskID]:
+            try:
+                await websocket.send_json(message)
+            except Exception:
+                pass  # Ignore disconnected clients
 
 
 def displayTime(startTime: datetime) -> str:
@@ -81,7 +107,7 @@ def generateToolboxConfig(id: Optional[str], joint: Optional[str]) -> str:
     return toolboxConfigPath
 
 
-def runSimulation(configData: modelGuideFile, toolboxPath: str) -> set[str]:
+async def runSimulation(configData: modelGuideFile, toolboxPath: str) -> set[str]:
     """
     Function to run a simulation experiment using the given config files
 
@@ -96,7 +122,8 @@ def runSimulation(configData: modelGuideFile, toolboxPath: str) -> set[str]:
         set of str: A list of file paths for each file created over the
             course of running the simulation.
     """
-    from commands.Run.RunCommand import RunCommand
+    # from commands.Run.RunCommand import RunCommand
+    from toolboxOverrides import RunCommand
     from logger import LogLevel
     from ToolboxConfiguration import ToolboxConfiguration
 
@@ -110,7 +137,7 @@ def runSimulation(configData: modelGuideFile, toolboxPath: str) -> set[str]:
         file.write(configData.model_dump_json(indent=2, exclude_unset=True))
 
     # Run the simulation
-    RunCommand().run_command(
+    await RunCommand().run_command(
         Namespace(guide=guidePath, log_level=LogLevel.DEBUG), toolboxConfig
     )
 

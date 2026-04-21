@@ -1,0 +1,51 @@
+# Flusim Web Interface Application
+# Developed by Reilly Evans
+# Replacements for Flusim toolbox modules that integrate the dashboard better
+
+# Imports
+import datetime
+import logging
+import os
+import sys
+import time
+from argparse import ArgumentParser, Namespace
+from typing import Optional
+
+from serverFiles.simulationFunctions import simLocation, updateStatus
+
+# Ensure Flusim imports work properly when called outside of toolbox
+sys.path.append(os.path.join(os.getcwd(), simLocation, "src/toolbox"))
+
+# Logging
+overrideLog = logging.getLogger(__name__)
+
+
+class RunCommand:
+    from ToolboxConfiguration import ToolboxConfiguration
+
+    name = "run"
+    description = "Run simulation sets"
+    simulationID = None
+
+    def __init__(self, simulationID: Optional[str] = None) -> None:
+        super().__init__()
+        self.simulationID = simulationID
+
+    def configure_parser_options(self, parser: ArgumentParser) -> None:
+        parser.add_argument("guide", type=str, help="the guide file")
+
+    async def run_command(self, args: Namespace, config: ToolboxConfiguration) -> None:
+        from commands.Run.ScenarioBuilder import ScenarioBuilder
+
+        startTime = time.monotonic()
+
+        # Since the C++ code is multithreaded now, we don't need to multithread here!
+        queue_builder = ScenarioBuilder(config, args.guide)
+        for index, scenario in enumerate(queue_builder.generateScenarios()):
+            # Update status for dashboard
+            if self.simulationID is not None:
+                await updateStatus(self.simulationID, f"runningSim{index}")
+            scenario.run()
+        duration = time.monotonic() - startTime
+        formattedDuration = str(datetime.timedelta(seconds=round(duration)))
+        overrideLog.info("All simulations completed in " + formattedDuration)

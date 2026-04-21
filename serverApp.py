@@ -5,6 +5,7 @@
 import asyncio
 import logging
 import os
+import time
 import uuid
 import zipfile
 from datetime import datetime
@@ -15,11 +16,15 @@ from fastapi.responses import FileResponse
 
 from serverFiles.ModelSchema import modelGuideFile
 from serverFiles.simulationFunctions import (
+    activeClients,
     asir,
+    completedSimulations,
     displayTime,
     epidemic,
     generateToolboxConfig,
     runSimulation,
+    simulationStatus,
+    updateStatus,
 )
 
 # Ensure Flusim imports work properly when called outside of toolbox
@@ -64,11 +69,6 @@ flusimApp.add_middleware(
 # Set this to False to preserve files after running sim
 deleteFiles = True
 
-# Dictionaries for storing the status of tasks
-simulationStatus = {}
-completedSimulations = {}
-activeClients = {}
-
 
 def clearFiles(files: set[str]):
     """
@@ -90,30 +90,6 @@ def clearFiles(files: set[str]):
             print(" (not found)")
 
 
-async def updateStatus(taskID: str, state: str):
-    """
-    Simple async function to update the returned status of a server operation.
-
-    Parameters:
-        taskID (str): The ID signifying this particular task.
-
-        state (str): The state to set the task to.
-    """
-    simulationStatus[taskID] = state
-    print(f"Updated simulation {taskID} to state {state}")  # TODO: DEBUG
-    # TODO: Determine if progress should be calculated here or by the client
-    # TODO: Include time taken?
-    # Broadcast to connected WebSockets
-    if taskID in activeClients:
-        message = {"status": state}
-        for websocket in activeClients[taskID]:
-            try:
-                await websocket.send_json(message)
-            except Exception:
-                pass  # Ignore disconnected clients
-
-
-# Define task for receiving model parameters
 async def runModel(simulationID: str, config: modelGuideFile):
     """
     Async function to run a simulation experiment based on parameters
@@ -126,10 +102,9 @@ async def runModel(simulationID: str, config: modelGuideFile):
             will define the simulation experiment.
     """
     try:
-        # TODO: early updates come before the websocket opens; account for this
+        # Wait 1 second for the websocket to connect
+        time.sleep(1)
         overallStartTime = datetime.now()
-        await updateStatus(simulationID, "start")
-        # TODO: More status updates
 
         # Get relevant attributes from config file
         # TODO: See if sessionID can be replaced with simulationID
@@ -137,16 +112,17 @@ async def runModel(simulationID: str, config: modelGuideFile):
         community = config.community_used[0]
         middleJoint = config.middle_joint
         print(f"Simulation received; name = {config.name}, ID = {sessionID}")
-        await updateStatus(simulationID, "configGenerated")
 
         # Generate toolbox config file
+        await updateStatus(simulationID, "generatingConfig")
         toolboxPath = generateToolboxConfig(sessionID, middleJoint)
         print(f"Toolbox file located at {toolboxPath}")
 
         # Run the Flusim simulation
-        createdFiles = await asyncio.to_thread(runSimulation, config, toolboxPath)
+        createdFiles: set[str] = await asyncio.to_thread(
+            runSimulation, config, toolboxPath
+        )  # type: ignore
         analysisFiles = []
-        await updateStatus(simulationID, "allSimulationsComplete")
 
         # TODO: Use middle joint to determine analyses to run
         # (or find a way to send the data forms to the server directly)
@@ -183,6 +159,7 @@ async def runModel(simulationID: str, config: modelGuideFile):
         # for now, just get the standard analyses the dashboard uses
 
         # Daily infection epidemic curve
+        await updateStatus(simulationID, "toolboxAnalysis0")
         analysisFiles += await asyncio.to_thread(
             epidemic,
             community,
@@ -191,9 +168,9 @@ async def runModel(simulationID: str, config: modelGuideFile):
             cumulative=True,
             toolboxPath=toolboxPath,
         )
-        await updateStatus(simulationID, "analysisComplete0")
 
         # Cumulative infection epidemic curve
+        await updateStatus(simulationID, "toolboxAnalysis1")
         analysisFiles += await asyncio.to_thread(
             epidemic,
             community,
@@ -202,16 +179,16 @@ async def runModel(simulationID: str, config: modelGuideFile):
             cumulative=False,
             toolboxPath=toolboxPath,
         )
-        await updateStatus(simulationID, "analysisComplete1")
 
         # Age-separated infection rates
+        await updateStatus(simulationID, "toolboxAnalysis2")
         analysisFiles += await asyncio.to_thread(
             asir, community, middleJoint, sessionID, toolboxPath=toolboxPath
         )
-        await updateStatus(simulationID, "analysisComplete2")
 
         # Vaccinated age-separated infection rates
         if middleJoint and "+vaccine" in middleJoint:
+            await updateStatus(simulationID, "toolboxAnalysis3")
             analysisFiles += await asyncio.to_thread(
                 asir,
                 community,
@@ -220,7 +197,6 @@ async def runModel(simulationID: str, config: modelGuideFile):
                 onlyVaccinated=True,
                 toolboxPath=toolboxPath,
             )
-            await updateStatus(simulationID, "analysisComplete3")
 
         # If all else fails and no analyses were specified, run epidemic
         if not analysisFiles:
@@ -228,7 +204,6 @@ async def runModel(simulationID: str, config: modelGuideFile):
             analysisFiles += await asyncio.to_thread(
                 epidemic, community, middleJoint, sessionID, toolboxPath=toolboxPath
             )
-            await updateStatus(simulationID, "analysisComplete0")
 
         print("\nAnalysis files:")
         for file in analysisFiles:
@@ -236,6 +211,7 @@ async def runModel(simulationID: str, config: modelGuideFile):
 
         # Zip together the analysis files if necessary
         # TODO: See if simplifying to always return zip is OK
+        await updateStatus(simulationID, "zippingAnalysis")
         if len(analysisFiles) != 1:
             zipPath = f"tempFiles/{sessionID}_analysis.zip"
             with zipfile.ZipFile(zipPath, mode="w") as analysis:
@@ -247,14 +223,14 @@ async def runModel(simulationID: str, config: modelGuideFile):
         else:
             (finalPath,) = analysisFiles
 
-        print(
-            f"\nSimulation request for session {sessionID} complete in "
-            f"{displayTime(overallStartTime)}, returning data\n"
-        )
-
         completedSimulations[simulationID] = (
             finalPath,
             createdFiles | {toolboxPath}.union(analysisFiles),
+        )
+
+        print(
+            f"\nSimulation request for session {sessionID} complete in "
+            f"{displayTime(overallStartTime)}, ready to return data\n"
         )
 
         await updateStatus(simulationID, "completed")
@@ -264,7 +240,6 @@ async def runModel(simulationID: str, config: modelGuideFile):
         print(f"Error while running simulation {simulationID}:\n{e}")
 
 
-# Define route for receiving model parameters
 @flusimApp.post("/runModel")
 async def runModelRoute(config: modelGuideFile) -> dict[str, str]:
     """
@@ -288,29 +263,7 @@ async def runModelRoute(config: modelGuideFile) -> dict[str, str]:
     return {"simulationID": simulationID}
 
 
-@flusimApp.get("/runModel/status/{simulationID}")
-async def getSimulationStatus(simulationID: str):
-    """
-    Async route function to check the current progress of a simulation experiment.
-
-    Parameters:
-        simulationID (str): The ID distinguishing this simulation task.
-
-    Returns:
-        dict: A dictionary containing the ID assigned to this particular
-            simulation run. A dictionary is used rather than returning the ID
-            directly as an int to allow for error messages to be sent if the
-            task does not exist.
-    """
-    if simulationID not in simulationStatus:
-        return {"error": "Task not found"}
-    return {"status": simulationStatus[simulationID]}
-
-
-# TODO: Test websockets once status is properly displayed
-# (make sure status updates go to client immediately without polling or reruns)
-# TODO: Add websockets to requirements.txt if used
-@flusimApp.websocket("/runModel/simStatus/{simulationID}")
+@flusimApp.websocket("/runModel/status/{simulationID}")
 async def statusWebSocket(websocket: WebSocket, simulationID: str):
     """
     Websocket route to deliver simulation status updates live [unused]
