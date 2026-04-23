@@ -324,7 +324,7 @@ The analysis results for the simulation with the requested ID could not be found
     return FileResponse(filePath, filename=os.path.basename(filePath))
 
 
-@flusimApp.get("/runModel/cancel/{simulationID}")
+@flusimApp.delete("/runModel/cancel/{simulationID}")
 async def stopSimulation(simulationID: str, cleanup: BackgroundTasks):
     """
     Async route function to stop a running simulation.
