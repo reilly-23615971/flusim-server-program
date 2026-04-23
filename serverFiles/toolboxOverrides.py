@@ -12,7 +12,7 @@ import time
 from argparse import ArgumentParser, Namespace
 from typing import Optional
 
-from serverFiles.simulationFunctions import simLocation, updateStatus
+from serverFiles.simulationFunctions import SimData, simLocation, updateStatus
 
 # Ensure Flusim imports work properly when called outside of toolbox
 sys.path.append(os.path.join(os.getcwd(), simLocation, "src/toolbox"))
@@ -26,11 +26,11 @@ class RunCommand:
 
     name = "run"
     description = "Run simulation sets"
-    simulationID = None
+    sim = None
 
-    def __init__(self, simulationID: Optional[str] = None) -> None:
+    def __init__(self, sim: Optional[SimData] = None) -> None:
         super().__init__()
-        self.simulationID = simulationID
+        self.sim = sim
 
     def configure_parser_options(self, parser: ArgumentParser) -> None:
         parser.add_argument("guide", type=str, help="the guide file")
@@ -44,9 +44,9 @@ class RunCommand:
         queue_builder = ScenarioBuilder(config, args.guide)
         for index, scenario in enumerate(queue_builder.generateScenarios()):
             # Update status for dashboard
-            if self.simulationID is not None:
+            if self.sim is not None:
                 overrideLog.info(f"\n\nAbout to run simulation number {index}\n\n")
-                await updateStatus(self.simulationID, f"runningSim{index}")
+                await updateStatus(self.sim, f"runningSim{index}")
             # Note that the progress bar generated in the terminal is part of
             # the simulator's C++ code, so using it for dashboard progress
             # would be difficult
