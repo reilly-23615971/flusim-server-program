@@ -3,6 +3,7 @@
 # Functions for running the Flusim simulation
 
 # Imports
+import asyncio
 import json
 import logging
 import os
@@ -97,18 +98,16 @@ class SimData:
     def results(self, value: str):
         self._results = value
 
-    def stopTasks(self):
+    async def stopTasks(self):
         """Stop any currently running tasks for this simulation"""
+
         for task in self.tasks:
             # Naming tasks for logging would require Python 3.12
             task.cancel()
-            # TODO: Adapt if threading stuff is required
 
-    def __del__(self):
-        functionLog.info(f"Removing data for simulation with ID {self.simulationID}")
-        self.stopTasks()
-        if deleteFiles:
-            clearFiles(self.files)
+        # Wait for all tasks to finish cancelling
+        if self.tasks:
+            await asyncio.gather(*self.tasks, return_exceptions=True)
 
 
 activeSimulations: dict[str, SimData] = dict()

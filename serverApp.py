@@ -25,7 +25,7 @@ from serverFiles.simulationFunctions import (
     SimData,
     activeSimulations,
     asir,
-    # clearFiles,
+    clearFiles,
     # deleteFiles,
     displayTime,
     epidemic,
@@ -74,13 +74,21 @@ flusimApp.add_middleware(
 )
 
 
-def closeSimulation(simulationID: str):
+async def closeSimulation(simulationID: str):
     """
-    Wrapper to ensure SimData objects are deleted at the right time
+    Async wrapper to ensure SimData objects are properly cleaned up
+    and tasks are fully cancelled before files are deleted.
 
     Parameters:
         simulationID (str): The ID distinguishing this simulation task.
     """
+    simData = activeSimulations.get(simulationID)
+    if simData is None:
+        return
+
+    # Cancel tasks, delete files and remove the simulation data
+    await simData.stopTasks()
+    clearFiles(simData.files)
     del activeSimulations[simulationID]
 
 
