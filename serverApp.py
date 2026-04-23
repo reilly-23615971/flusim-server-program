@@ -219,7 +219,7 @@ async def runModel(simulationID: str, config: modelGuideFile):
         print(f"Error while running simulation {simulationID}:\n{e}")
 
 
-@flusimApp.post("/runModel")
+@flusimApp.post("/runModel", status_code=202)
 async def runModelRoute(config: modelGuideFile) -> dict[str, str]:
     """
     Async route function to begin a simulation experiment and give the
@@ -235,7 +235,7 @@ async def runModelRoute(config: modelGuideFile) -> dict[str, str]:
             directly as an int to ensure corrupted data is not read by the
             dashboard client.
     """
-    # TODO: Make simulationID a cookie or similar
+    # TODO: Make simulationID a cookie if it helps with reload preservation
     simulationID = str(uuid.uuid4())
     activeSimulations[simulationID] = SimData(simulationID)
 
@@ -315,16 +315,12 @@ The analysis results for the simulation with the requested ID could not be found
             """,
         )
 
-    # TODO: Allow preserving these files until the client is disconnected
-    # if deleteFiles:
-    # cleanup.add_task(clearFiles, simData.files)
-
     cleanup.add_task(closeSimulation, simulationID)
 
     return FileResponse(filePath, filename=os.path.basename(filePath))
 
 
-@flusimApp.delete("/runModel/cancel/{simulationID}")
+@flusimApp.delete("/runModel/cancel/{simulationID}", status_code=204)
 async def stopSimulation(simulationID: str, cleanup: BackgroundTasks):
     """
     Async route function to stop a running simulation.
