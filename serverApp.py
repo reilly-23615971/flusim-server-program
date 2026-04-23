@@ -26,7 +26,7 @@ from serverFiles.simulationFunctions import (
     activeSimulations,
     asir,
     clearFiles,
-    # deleteFiles,
+    deleteFiles,
     displayTime,
     epidemic,
     generateToolboxConfig,
@@ -88,7 +88,8 @@ async def closeSimulation(simulationID: str):
 
     # Cancel tasks, delete files and remove the simulation data
     await simData.stopTasks()
-    clearFiles(simData.files)
+    if deleteFiles:
+        clearFiles(simData.files)
     del activeSimulations[simulationID]
 
 
