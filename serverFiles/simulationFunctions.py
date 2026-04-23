@@ -8,6 +8,7 @@ import logging
 import os
 import sys
 from argparse import Namespace
+from asyncio import Task
 from datetime import datetime
 from typing import Optional
 
@@ -66,7 +67,7 @@ class SimData:
         return self._tasks
 
     @tasks.setter
-    def tasks(self, value: set):
+    def tasks(self, value: set[Task]):
         self._tasks = value
 
     @property
@@ -99,10 +100,12 @@ class SimData:
     def stopTasks(self):
         """Stop any currently running tasks for this simulation"""
         for task in self.tasks:
+            # Naming tasks for logging would require Python 3.12
             task.cancel()
             # TODO: Adapt if threading stuff is required
 
     def __del__(self):
+        functionLog.info(f"Removing data for simulation with ID {self.simulationID}")
         self.stopTasks()
         if deleteFiles:
             clearFiles(self.files)

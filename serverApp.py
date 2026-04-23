@@ -15,6 +15,7 @@ from fastapi import (
     HTTPException,
     WebSocket,
     WebSocketDisconnect,
+    WebSocketException,
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -256,13 +257,13 @@ async def statusWebSocket(websocket: WebSocket, simulationID: str):
         simulationID (str): The ID distinguishing this simulation task.
 
     Raises:
-        HTTPException: If the specified ID does not exist (uses 404 status code).
+        WebSocketException: If the specified ID does not exist (uses 1008 status code).
     """
     await websocket.accept()
     simData = activeSimulations.get(simulationID)
     if simData is None:
-        raise HTTPException(
-            404, "The simulation with the requested ID could not be found"
+        raise WebSocketException(
+            1008, "The simulation with the requested ID could not be found"
         )
 
     simData.websockets.append(websocket)
@@ -287,7 +288,7 @@ async def downloadSimulationResults(simulationID: str, cleanup: BackgroundTasks)
         simulationID (str): The ID distinguishing this simulation task.
 
         cleanup (BackgroundTasks): An object that will have file removal
-            functions attached to it to remove excess files once this
+            functions attached to it to remove simulation data once this
             function finishes running.
 
     Raises:
@@ -321,3 +322,26 @@ The analysis results for the simulation with the requested ID could not be found
     cleanup.add_task(closeSimulation, simulationID)
 
     return FileResponse(filePath, filename=os.path.basename(filePath))
+
+
+@flusimApp.get("/runModel/cancel/{simulationID}")
+async def stopSimulation(simulationID: str, cleanup: BackgroundTasks):
+    """
+    Async route function to stop a running simulation.
+
+    Parameters:
+        simulationID (str): The ID distinguishing this simulation task.
+
+        cleanup (BackgroundTasks): An object that will have file removal
+            functions attached to it to remove excess files once this
+            function finishes running.
+
+    Raises:
+        HTTPException: If the specified ID does not exist (uses 404 status code).
+    """
+    simData = activeSimulations.get(simulationID)
+    if simData is None:
+        raise HTTPException(
+            404, "The simulation with the requested ID could not be found"
+        )
+    cleanup.add_task(closeSimulation, simulationID)
