@@ -254,6 +254,9 @@ async def statusWebSocket(websocket: WebSocket, simulationID: str):
         websocket (WebSocket): The websocket to send updates to.
 
         simulationID (str): The ID distinguishing this simulation task.
+
+    Raises:
+        HTTPException: If the specified ID does not exist (uses 404 status code).
     """
     await websocket.accept()
     simData = activeSimulations.get(simulationID)
@@ -286,6 +289,10 @@ async def downloadSimulationResults(simulationID: str, cleanup: BackgroundTasks)
         cleanup (BackgroundTasks): An object that will have file removal
             functions attached to it to remove excess files once this
             function finishes running.
+
+    Raises:
+        HTTPException: If the specified ID does not exist or has no results
+            (uses 404 status code) or is still running (raises 503 status code).
     """
     simData = activeSimulations.get(simulationID)
     if simData is None:

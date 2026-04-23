@@ -139,9 +139,6 @@ async def updateStatus(sim: SimData, state: str):
         sim (SimData): The object containing the data used for this simulation.
 
         state (str): The state to set the task to.
-
-    Raises:
-        ValueError: If the simulation with the specified ID cannot be found.
     """
     # TODO: If other tasks don't use SimData modify the parameters here
     # TODO: Include time taken?
