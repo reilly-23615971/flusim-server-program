@@ -23,6 +23,7 @@ from serverFiles.simulationFunctions import (
     generateToolboxConfig,
     runSimulation,
     simulationStatus,
+    simulationFiles,
     updateStatus,
 )
 
@@ -106,62 +107,37 @@ async def runModel(simulationID: str, config: modelGuideFile):
         overallStartTime = datetime.now()
 
         # Get relevant attributes from config file
-        # TODO: See if sessionID can be replaced with simulationID
-        sessionID = config.description
+        # TODO: See if fileID can be replaced with simulationID
+        fileID = config.description
         community = config.community_used[0]
         middleJoint = config.middle_joint
-        print(f"Simulation received; name = {config.name}, ID = {sessionID}")
+        print(f"Simulation received; name = {config.name}, ID = {simulationID}")
+
+        # Log the files that will be created over the course of the simulation
+        simulationFiles[simulationID] = set()
+        analysisFiles = []
 
         # Generate toolbox config file
         await updateStatus(simulationID, "generatingConfig")
-        toolboxPath = generateToolboxConfig(sessionID, middleJoint)
+        toolboxPath = generateToolboxConfig(simulationID, fileID, middleJoint)
         print(f"Toolbox file located at {toolboxPath}")
 
         # Run the Flusim simulation
-        createdFiles: set[str] = await runSimulation(config, toolboxPath, simulationID)
-        analysisFiles = []
+        await runSimulation(simulationID, fileID, config, toolboxPath)
 
         # TODO: Use middle joint to determine analyses to run
         # (or find a way to send the data forms to the server directly)
-        middleCheck = """if middleJoint:
-            # Epidemic tool
-            if 'usingEpidemic' in middleJoint:
-                sumStat = (
-                    AnalysisStat.MEAN if 'EMean' in middleJoint
-                    else AnalysisStat.MEDIAN
-                )
-                epiCumulative = 'ECumulative' in middleJoint
-                epiAge = 'EAgeBased' in middleJoint
-                analysisFiles.append(epidemic(
-                    community, middleJoint, sessionID, summaryStat = sumStat,
-                    cumulative = epiCumulative, byAge = epiAge,
-                    toolboxPath = toolboxPath
-                ))
-            # Asir tool
-            if 'usingAsir' in middleJoint:
-                sumStat = (
-                    AnalysisStat.MEAN if 'AMean' in middleJoint
-                    else AnalysisStat.MEDIAN
-                )
-                asirProportion = 'AProportion' in middleJoint
-                asirIndigenous = 'AIndigenous' in middleJoint
-                asirPregnant = 'APregnant' in middleJoint
-                asirVaccinated = 'AVaccinated' in middleJoint
-                analysisFiles.append(asir(
-                    community, middleJoint, sessionID,
-                    summaryStat = sumStat, getProportion = asirProportion,
-                    onlyIndigenous = asirIndigenous, onlyPregnant = asirPregnant,
-                    onlyVaccinated = asirVaccinated, toolboxPath = toolboxPath
-                ))"""
+
         # for now, just get the standard analyses the dashboard uses
 
         # Daily infection epidemic curve
         await updateStatus(simulationID, "toolboxAnalysis0")
         analysisFiles += await asyncio.to_thread(
             epidemic,
+            simulationID,
+            fileID,
             community,
             middleJoint,
-            sessionID,
             cumulative=True,
             toolboxPath=toolboxPath,
         )
@@ -170,9 +146,10 @@ async def runModel(simulationID: str, config: modelGuideFile):
         await updateStatus(simulationID, "toolboxAnalysis1")
         analysisFiles += await asyncio.to_thread(
             epidemic,
+            simulationID,
+            fileID,
             community,
             middleJoint,
-            sessionID,
             cumulative=False,
             toolboxPath=toolboxPath,
         )
@@ -180,7 +157,12 @@ async def runModel(simulationID: str, config: modelGuideFile):
         # Age-separated infection rates
         await updateStatus(simulationID, "toolboxAnalysis2")
         analysisFiles += await asyncio.to_thread(
-            asir, community, middleJoint, sessionID, toolboxPath=toolboxPath
+            asir,
+            simulationID,
+            fileID,
+            community,
+            middleJoint,
+            toolboxPath=toolboxPath,
         )
 
         # Vaccinated age-separated infection rates
@@ -188,9 +170,10 @@ async def runModel(simulationID: str, config: modelGuideFile):
             await updateStatus(simulationID, "toolboxAnalysis3")
             analysisFiles += await asyncio.to_thread(
                 asir,
+                simulationID,
+                fileID,
                 community,
                 middleJoint,
-                sessionID,
                 onlyVaccinated=True,
                 toolboxPath=toolboxPath,
             )
@@ -199,7 +182,12 @@ async def runModel(simulationID: str, config: modelGuideFile):
         if not analysisFiles:
             print("No analyses specified; defaulting to epidemic")
             analysisFiles += await asyncio.to_thread(
-                epidemic, community, middleJoint, sessionID, toolboxPath=toolboxPath
+                epidemic,
+                simulationID,
+                fileID,
+                community,
+                middleJoint,
+                toolboxPath=toolboxPath,
             )
 
         print("\nAnalysis files:")
@@ -210,23 +198,21 @@ async def runModel(simulationID: str, config: modelGuideFile):
         # TODO: See if simplifying to always return zip is OK
         await updateStatus(simulationID, "zippingAnalysis")
         if len(analysisFiles) != 1:
-            zipPath = f"tempFiles/{sessionID}_analysis.zip"
+            zipPath = f"tempFiles/{fileID}_analysis.zip"
+            simulationFiles[simulationID].add(zipPath)
             with zipfile.ZipFile(zipPath, mode="w") as analysis:
                 for file in analysisFiles:
                     analysis.write(file)
-            createdFiles.add(zipPath)
+            simulationFiles[simulationID].add(zipPath)
             finalPath = zipPath
         # Just return lone CSV if only one analysis needed
         else:
             (finalPath,) = analysisFiles
 
-        completedSimulations[simulationID] = (
-            finalPath,
-            createdFiles | {toolboxPath}.union(analysisFiles),
-        )
+        completedSimulations[simulationID] = finalPath
 
         print(
-            f"\nSimulation request for session {sessionID} complete in "
+            f"\nSimulation request for session {fileID} complete in "
             f"{displayTime(overallStartTime)}, ready to return data\n"
         )
 
@@ -263,7 +249,12 @@ async def runModelRoute(config: modelGuideFile) -> dict[str, str]:
 @flusimApp.websocket("/runModel/status/{simulationID}")
 async def statusWebSocket(websocket: WebSocket, simulationID: str):
     """
-    Websocket route to deliver simulation status updates live [unused]
+    Websocket route to deliver simulation status updates live
+
+    Parameters:
+        websocket (WebSocket): The websocket to send updates to.
+
+        simulationID (str): The ID distinguishing this simulation task.
     """
     await websocket.accept()
     if simulationID not in activeClients:
@@ -304,14 +295,14 @@ async def downloadSimulationResults(simulationID: str, cleanup: BackgroundTasks)
     if currentStatus != "completed":
         return {"error": "Task not completed", "status": currentStatus}
 
-    filePath, filesToDelete = completedSimulations.get(simulationID, (None, None))
+    filePath = completedSimulations.get(simulationID)
 
     if not filePath or not os.path.exists(filePath):
         return {"error": "File not found"}
 
     # TODO: Allow preserving these files until the client is disconnected
     if deleteFiles:
-        cleanup.add_task(clearFiles, filesToDelete)
+        cleanup.add_task(clearFiles, simulationFiles.get(simulationID, {}))
 
     # TODO: Remove the dictionary entries once finished
 
