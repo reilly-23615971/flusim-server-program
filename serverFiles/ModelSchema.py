@@ -75,7 +75,6 @@ parameterGetters = {
 
 
 # Parameter Models
-# TODO: More validation to ensure the dashboard can use this
 
 
 # Set of scenario parameters set collectively for all age groups
@@ -2257,14 +2256,12 @@ class modelGuideFile(BaseModel):
         if self.community_overrides:
             for override in self.community_overrides:
                 if override.name not in validCommunities:
-                    raise ValueError(
-                        """
+                    raise ValueError("""
                         `community_overrides` includes communities not present in
                         `community_used`. Ensure the `name` property of each
                         override in `community_overrides` matches a community
                         in `community_used`.
-                        """
-                    )
+                        """)
         return self
 
     """

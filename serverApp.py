@@ -20,24 +20,23 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-from serverFiles.ModelSchema import modelGuideFile
-from serverFiles.simulationFunctions import (
-    SimData,
+from ServerFiles.ModelSchema import modelGuideFile
+from ServerFiles.SharedResources import (
     activeSimulations,
-    asir,
     clearFiles,
-    deleteFiles,
+    deleteGeneratedFiles,
+    executableLocation,
+    toolboxLocation,
+    updateStatus,
+)
+from ServerFiles.SimulationFunctions import (
+    SimData,
+    asir,
     displayTime,
     epidemic,
     generateToolboxConfig,
     runSimulation,
-    updateStatus,
 )
-
-# Ensure Flusim imports work properly when called outside of toolbox
-# TODO: Uncomment if AnalysisStat is used in the main function
-# sys.path.append(os.path.join(os.getcwd(), simLocation, "src/toolbox"))
-# from analysis.AnalysisStat import AnalysisStat
 
 # Logging config
 os.makedirs("tempFiles", exist_ok=True)
@@ -50,15 +49,18 @@ logging.basicConfig(
 )
 
 # Throw error if Flusim files aren't present
-# TODO: Check for the simulator and not just the toolbox
-# (protect against running without building the executable first)
-if not os.path.isfile("src/toolbox/toolbox.py"):
-    raise FileNotFoundError(
-        (
-            "Flusim files not found. Ensure that this application is "
-            "present in the same directory as the Flusim simulation files."
-        )
-    )
+if not os.path.isfile(toolboxLocation):
+    raise FileNotFoundError(f"""
+        Flusim toolbox files not found. Ensure that this application is present
+        in the same directory as the Flusim simulation files, such that the
+        toolbox program is located at "{toolboxLocation}".
+    """)
+if not os.path.isfile(executableLocation):
+    raise FileNotFoundError(f"""
+        Flusim simulation engine executable not found. Ensure that the executable
+        has been built (see the Flusim documentation for more info) and is located
+        at "{executableLocation}".
+    """)
 
 
 # Define main Flusim app and dictionary for
@@ -90,7 +92,7 @@ async def closeSimulation(simulationID: str):
     if simData.process is not None:
         simData.process.terminate()
     await simData.stopTasks()
-    if deleteFiles:
+    if deleteGeneratedFiles:
         clearFiles(simData.files)
     del activeSimulations[simulationID]
 
@@ -112,7 +114,6 @@ async def runModel(simulationID: str, config: modelGuideFile):
         overallStartTime = datetime.now()
 
         # Get relevant attributes from config file and sim data
-        # TODO: See if fileID can be replaced with simulationID
         simData = activeSimulations.get(simulationID)
         if simData is None:
             raise ValueError("The simulation with the requested ID could not be found")
@@ -202,21 +203,15 @@ async def runModel(simulationID: str, config: modelGuideFile):
         for file in analysisFiles:
             print("   ", file)
 
-        # Zip together the analysis files if necessary
-        # TODO: See if simplifying to always return zip is OK
+        # Zip together the analysis files
         await updateStatus(simData, "zippingAnalysis")
-        if len(analysisFiles) != 1:
-            zipPath = f"tempFiles/{fileID}_analysis.zip"
-            simData.files.add(zipPath)
-            with zipfile.ZipFile(zipPath, mode="w") as analysis:
-                for file in analysisFiles:
-                    analysis.write(file)
-            finalPath = zipPath
-        # Just return lone CSV if only one analysis needed
-        else:
-            (finalPath,) = analysisFiles
+        zipPath = f"tempFiles/analysis_files_{fileID}_.zip"
+        simData.files.add(zipPath)
+        with zipfile.ZipFile(zipPath, mode="w") as analysis:
+            for file in analysisFiles:
+                analysis.write(file)
 
-        simData.results = finalPath
+        simData.results = zipPath
 
         print(
             f"\nSimulation request for session {fileID} complete in "

@@ -12,7 +12,8 @@ import time
 from argparse import ArgumentParser, Namespace
 from typing import Optional
 
-from serverFiles.simulationFunctions import SimData, simLocation, updateStatus
+from ServerFiles.SharedResources import updateStatus
+from ServerFiles.SimulationFunctions import SimData, simLocation
 
 # Ensure Flusim imports work properly when called outside of toolbox
 sys.path.append(os.path.join(os.getcwd(), simLocation, "src/toolbox"))
@@ -28,6 +29,7 @@ class RunCommandWithData:
     Modified version of the toolbox's RunCommand that contains a SimData object,
     allowing for updates to its status and mid-simulation termination
     """
+
     from ToolboxConfiguration import ToolboxConfiguration
 
     name = "run"
@@ -70,6 +72,7 @@ def runScenario(scenario, sim):
     import shutil
     import sqlite3
     import subprocess
+
     from commands.Run.ScenarioRunner import ScenarioRunner
 
     if not isinstance(scenario, ScenarioRunner):
@@ -78,7 +81,7 @@ def runScenario(scenario, sim):
     if not isinstance(sim, SimData):
         overrideLog.error(f"runScenario called with non-SimData {scenario}")
         return
-    
+
     shutil.copy(scenario.community.population_model, scenario.scenarioDb)
     overrideLog.debug(
         f"Created {scenario.scenarioDb} from community {scenario.community.name}"
