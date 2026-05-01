@@ -20,8 +20,14 @@ sys.path.append(os.path.join(os.getcwd(), simLocation, "src/toolbox"))
 # Logging
 overrideLog = logging.getLogger(__name__)
 
+# TODO: Just modify the toolbox repo itself rather than using these workarounds
 
-class RunCommand:
+
+class RunCommandWithData:
+    """
+    Modified version of the toolbox's RunCommand that contains a SimData object,
+    allowing for updates to its status and mid-simulation termination
+    """
     from ToolboxConfiguration import ToolboxConfiguration
 
     name = "run"
@@ -50,7 +56,49 @@ class RunCommand:
             # Note that the progress bar generated in the terminal is part of
             # the simulator's C++ code, so using it for dashboard progress
             # would be difficult
-            await asyncio.to_thread(scenario.run)
+            await asyncio.to_thread(runScenario, scenario, self.sim)
         duration = time.monotonic() - startTime
         formattedDuration = str(datetime.timedelta(seconds=round(duration)))
         overrideLog.info("All simulations completed in " + formattedDuration)
+
+
+def runScenario(scenario, sim):
+    """
+    Modified version of ScenarioRunner's run function that
+    stores the simulation engine's process so it can be terminated if necessary
+    """
+    import shutil
+    import sqlite3
+    import subprocess
+    from commands.Run.ScenarioRunner import ScenarioRunner
+
+    if not isinstance(scenario, ScenarioRunner):
+        overrideLog.error(f"runScenario called on non-scenario object {scenario}")
+        return
+    if not isinstance(sim, SimData):
+        overrideLog.error(f"runScenario called with non-SimData {scenario}")
+        return
+    
+    shutil.copy(scenario.community.population_model, scenario.scenarioDb)
+    overrideLog.debug(
+        f"Created {scenario.scenarioDb} from community {scenario.community.name}"
+    )
+
+    connection = sqlite3.connect(scenario.scenarioDb)
+
+    with open(scenario.config.sql_path / "scenario_parameters.sql") as ddl_file:
+        connection.executescript(ddl_file.read())
+
+    scenario.parameters.setInSqlite(connection)
+
+    with open(scenario.config.sql_path / "event_log.sql") as ddl_file:
+        connection.executescript(ddl_file.read())
+
+    connection.commit()
+
+    command = scenario.getCommand()
+    overrideLog.info(f"Running {scenario.command} {scenario.scenarioDb}")
+    overrideLog.debug(f"With command-line invocation: {command}")
+    simProcess = subprocess.Popen(command)
+    sim.process = simProcess
+    simProcess.wait()

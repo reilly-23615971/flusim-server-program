@@ -11,6 +11,7 @@ import sys
 from argparse import Namespace
 from asyncio import Task
 from datetime import datetime
+from subprocess import Popen
 from typing import Optional
 
 import pandas as pd
@@ -40,6 +41,7 @@ class SimData:
         self._simulationID = simulationID
         self._websockets = []
         self._tasks = set()
+        self._process = None
         self._status = "start"
         self._files = set()
         self._results = None
@@ -70,6 +72,21 @@ class SimData:
     @tasks.setter
     def tasks(self, value: set[Task]):
         self._tasks = value
+
+    @property
+    def process(self):
+        """C++ subprocess currently running for this simulation"""
+        return self._process
+
+    @process.setter
+    def process(self, value: Popen):
+        self._process = value
+
+    @process.deleter
+    def process(self):
+        if self._process is not None:
+            self._process.terminate()
+        del self._process
 
     @property
     def status(self):
@@ -249,7 +266,7 @@ async def runSimulation(
     from logger import LogLevel
     from ToolboxConfiguration import ToolboxConfiguration
 
-    from serverFiles.toolboxOverrides import RunCommand
+    from serverFiles.toolboxOverrides import RunCommandWithData
 
     runStartTime = datetime.now()
     toolboxConfig = ToolboxConfiguration(toolboxPath)
@@ -279,7 +296,7 @@ async def runSimulation(
         file.write(configData.model_dump_json(indent=2, exclude_unset=True))
 
     # Run the simulation
-    await RunCommand(sim=sim).run_command(
+    await RunCommandWithData(sim=sim).run_command(
         Namespace(guide=guidePath, log_level=LogLevel.DEBUG), toolboxConfig
     )
     print(

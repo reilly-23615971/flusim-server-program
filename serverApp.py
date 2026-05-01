@@ -87,6 +87,8 @@ async def closeSimulation(simulationID: str):
         return
 
     # Cancel tasks, delete files and remove the simulation data
+    if simData.process is not None:
+        simData.process.terminate()
     await simData.stopTasks()
     if deleteFiles:
         clearFiles(simData.files)

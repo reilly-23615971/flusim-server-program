@@ -7,3 +7,4 @@ serverAppLogs.txt
 smrg_flusim/*
 tempFiles/*
 oldServerApp.py
+src/*
