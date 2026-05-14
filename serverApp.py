@@ -1,6 +1,9 @@
 # Flusim Web Interface Application
 # Developed by Reilly Evans
 
+# WARNING: When running as a FastAPI app, make sure to 
+# add the --no-reload flag to avoid recursive logging
+
 # Imports
 import asyncio
 import logging
@@ -39,6 +42,7 @@ from ServerFiles.SimulationFunctions import (
 )
 
 # Logging config
+# TODO: Try to fix the logging loop again without --no-reload
 os.makedirs("tempFiles", exist_ok=True)
 logging.basicConfig(
     filename="tempFiles/serverAppLogs.txt",
