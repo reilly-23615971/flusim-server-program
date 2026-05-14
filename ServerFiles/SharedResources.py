@@ -173,8 +173,7 @@ async def updateStatus(sim: SimData, state: str):
             sharedLog.error(f"""
 Status for {sim.simulationID} wasn't updated to {message} due to the following error:
 {e}\n
-                """)
-            pass  # Ignore disconnected clients
+            """)
 
 
 def displayTime(startTime: datetime) -> str:

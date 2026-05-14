@@ -1,7 +1,7 @@
 # Flusim Web Interface Application
 # Developed by Reilly Evans
 
-# WARNING: When running as a FastAPI app, make sure to 
+# WARNING: When running as a FastAPI app, make sure to
 # add the --no-reload flag to avoid recursive logging
 
 # Imports
@@ -225,8 +225,9 @@ async def runModel(simulationID: str, config: modelGuideFile):
         await updateStatus(simData, "completed")
     except Exception as e:
         # TODO: Add more info to errors like this
-        await updateStatus(activeSimulations[simulationID], "error")
         print(f"Error while running simulation {simulationID}:\n{e}")
+        await updateStatus(activeSimulations[simulationID], "error")
+        await closeSimulation(simulationID)
 
 
 @flusimApp.post("/runModel", status_code=202)

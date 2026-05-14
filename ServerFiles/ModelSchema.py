@@ -75,6 +75,8 @@ parameterGetters = {
 
 
 # Parameter Models
+# TODO: More validation to ensure the dashboard can use this
+# TODO: Update schema descriptions once dashboard descriptions are finalised
 
 
 # Set of scenario parameters set collectively for all age groups
@@ -88,7 +90,7 @@ class ageScenarioParameters(BaseModel):
                 "The probability of transmission for all age groups will "
                 "be multiplied by this value; the higher this is, the more "
                 "likely it is that infected individuals will spread the "
-                "disease to others."
+                "pathogen to others."
             )
         ),
     )
@@ -101,7 +103,7 @@ class ageScenarioParameters(BaseModel):
                 "The probability of transmission for all age groups will "
                 "be multiplied by this value; the higher this is, the more "
                 "likely it is that uninfected individuals will catch the "
-                "disease from others."
+                "pathogen from others."
             )
         ),
     )
@@ -118,9 +120,7 @@ class ageScenarioParameters(BaseModel):
     mort: Optional[Probability] = Field(
         title="Mortality",
         default=None,
-        description=(
-            ("The probability of dying from " "the disease for all age groups.")
-        ),
+        description="The probability of dying from the infection for all age groups.",
     )
 
     class Config:
@@ -360,7 +360,7 @@ class scenarioParameters(BaseModel):
         description=(
             (
                 "The probability of an infected individual visiting a hospital's "
-                "Intensive Care Unit as a result of the disease. This parameter "
+                "Intensive Care Unit as a result of the pathogen. This parameter "
                 "is not used in the simulation itself, but is included to aid in "
                 "dashboard functions."
             )
@@ -382,7 +382,7 @@ class scenarioParameters(BaseModel):
         description=(
             (
                 "The probability of an infected individual visiting a general "
-                "practitioner regarding symptoms of the disease. This parameter "
+                "practitioner regarding symptoms of the pathogen. This parameter "
                 "is not used in the simulation itself, but is included to aid in "
                 "dashboard functions."
             )
@@ -617,7 +617,7 @@ class scenarioParameters(BaseModel):
         description=(
             (
                 "The number of cycles before an individual who has recovered from "
-                "an infection will begin to lose their immunity to the disease."
+                "an infection will begin to lose their immunity to the pathogen."
             )
         ),
     )
@@ -628,7 +628,7 @@ class scenarioParameters(BaseModel):
         description=(
             (
                 "The proportion of immune individuals who will lose their "
-                "immunity to the disease each cycle, once immunity waning "
+                "immunity to the pathogen each cycle, once immunity waning "
                 "has begun."
             )
         ),
@@ -793,7 +793,7 @@ class scenarioParameters(BaseModel):
     )
     increased_withdrawal_child: Optional[float] = Field(
         title="Increased Child Withdrawal Probability",
-        default=0.9,
+        default=1.0,
         ge=0.0,
         description=(
             (
@@ -1064,7 +1064,7 @@ class scenarioParameters(BaseModel):
                 "The probability of transmission will be multiplied by "
                 "this value when the infected individual is less than 6 "
                 "months old. The higher this is, the more likely it is "
-                "that infected young infants will spread the disease to "
+                "that infected young infants will spread the pathogen to "
                 "others."
             )
         ),
@@ -1078,7 +1078,7 @@ class scenarioParameters(BaseModel):
                 "The probability of transmission will be multiplied by "
                 "this value when the infected individual is 7-24 months "
                 "old. The higher this is, the more likely it is that "
-                "infected infants will spread the disease to others."
+                "infected infants will spread the pathogen to others."
             )
         ),
     )
@@ -1091,7 +1091,7 @@ class scenarioParameters(BaseModel):
                 "The probability of transmission will be multiplied by "
                 "this value when the infected individual is 3-5 years old. "
                 "The higher this is, the more likely it is that infected "
-                "young children will spread the disease to others."
+                "young children will spread the pathogen to others."
             )
         ),
     )
@@ -1104,7 +1104,7 @@ class scenarioParameters(BaseModel):
                 "The probability of transmission will be multiplied by "
                 "this value when the infected individual is 6-12 years "
                 "old. The higher this is, the more likely it is that "
-                "infected children will spread the disease to others."
+                "infected children will spread the pathogen to others."
             )
         ),
     )
@@ -1117,7 +1117,7 @@ class scenarioParameters(BaseModel):
                 "The probability of transmission will be multiplied by "
                 "this value when the infected individual is 13-17 years "
                 "old. The higher this is, the more likely it is that "
-                "infected adolescents will spread the disease to others."
+                "infected adolescents will spread the pathogen to others."
             )
         ),
     )
@@ -1130,7 +1130,7 @@ class scenarioParameters(BaseModel):
                 "The probability of transmission will be multiplied by "
                 "this value when the infected individual is 18-24 years "
                 "old. The higher this is, the more likely it is that "
-                "infected young adults will spread the disease to others."
+                "infected young adults will spread the pathogen to others."
             )
         ),
     )
@@ -1143,7 +1143,7 @@ class scenarioParameters(BaseModel):
                 "The probability of transmission will be multiplied by "
                 "this value when the infected individual is 25-44 years "
                 "old. The higher this is, the more likely it is that "
-                "infected adults will spread the disease to others."
+                "infected adults will spread the pathogen to others."
             )
         ),
     )
@@ -1156,7 +1156,7 @@ class scenarioParameters(BaseModel):
                 "The probability of transmission will be multiplied by "
                 "this value when the infected individual is 45-64 years "
                 "old. The higher this is, the more likely it is that "
-                "infected older adults will spread the disease to others."
+                "infected older adults will spread the pathogen to others."
             )
         ),
     )
@@ -1169,7 +1169,7 @@ class scenarioParameters(BaseModel):
                 "The probability of transmission will be multiplied by "
                 "this value when the infected individual is 65-79 years "
                 "old. The higher this is, the more likely it is that "
-                "infected seniors will spread the disease to others."
+                "infected seniors will spread the pathogen to others."
             )
         ),
     )
@@ -1182,7 +1182,7 @@ class scenarioParameters(BaseModel):
                 "The probability of transmission will be multiplied by "
                 "this value when the infected individual is over 80 years "
                 "old. The higher this is, the more likely it is that "
-                "infected older seniors will spread the disease to others."
+                "infected older seniors will spread the pathogen to others."
             )
         ),
     )
@@ -1197,7 +1197,7 @@ class scenarioParameters(BaseModel):
                 "The probability of transmission will be multiplied by "
                 "this value when the uninfected individual is less than 6 "
                 "months old. The higher this is, the more likely it is "
-                "that uninfected young infants will catch the disease from "
+                "that uninfected young infants will catch the pathogen from "
                 "others."
             )
         ),
@@ -1211,7 +1211,7 @@ class scenarioParameters(BaseModel):
                 "The probability of transmission will be multiplied by "
                 "this value when the uninfected individual is 7-24 months "
                 "old. The higher this is, the more likely it is that "
-                "uninfected infants will catch the disease from others."
+                "uninfected infants will catch the pathogen from others."
             )
         ),
     )
@@ -1224,7 +1224,7 @@ class scenarioParameters(BaseModel):
                 "The probability of transmission will be multiplied by "
                 "this value when the uninfected individual is 3-5 years "
                 "old. The higher this is, the more likely it is that "
-                "uninfected young children will catch the disease from "
+                "uninfected young children will catch the pathogen from "
                 "others."
             )
         ),
@@ -1238,7 +1238,7 @@ class scenarioParameters(BaseModel):
                 "The probability of transmission will be multiplied by "
                 "this value when the uninfected individual is 6-12 years "
                 "old. The higher this is, the more likely it is that "
-                "uninfected children will catch the disease from others."
+                "uninfected children will catch the pathogen from others."
             )
         ),
     )
@@ -1251,7 +1251,7 @@ class scenarioParameters(BaseModel):
                 "The probability of transmission will be multiplied by "
                 "this value when the uninfected individual is 13-17 years "
                 "old. The higher this is, the more likely it is that "
-                "uninfected adolescents will catch the disease from others."
+                "uninfected adolescents will catch the pathogen from others."
             )
         ),
     )
@@ -1264,7 +1264,7 @@ class scenarioParameters(BaseModel):
                 "The probability of transmission will be multiplied by "
                 "this value when the uninfected individual is 18-24 years "
                 "old. The higher this is, the more likely it is that "
-                "uninfected young adults will catch the disease from "
+                "uninfected young adults will catch the pathogen from "
                 "others."
             )
         ),
@@ -1278,7 +1278,7 @@ class scenarioParameters(BaseModel):
                 "The probability of transmission will be multiplied by "
                 "this value when the uninfected individual is 25-44 years "
                 "old. The higher this is, the more likely it is that "
-                "uninfected adults will catch the disease from others."
+                "uninfected adults will catch the pathogen from others."
             )
         ),
     )
@@ -1291,7 +1291,7 @@ class scenarioParameters(BaseModel):
                 "The probability of transmission will be multiplied by "
                 "this value when the uninfected individual is 45-64 years "
                 "old. The higher this is, the more likely it is that "
-                "uninfected older adults will catch the disease from "
+                "uninfected older adults will catch the pathogen from "
                 "others."
             )
         ),
@@ -1305,7 +1305,7 @@ class scenarioParameters(BaseModel):
                 "The probability of transmission will be multiplied by "
                 "this value when the uninfected individual is 65-79 years "
                 "old. The higher this is, the more likely it is that "
-                "uninfected seniors will catch the disease from others."
+                "uninfected seniors will catch the pathogen from others."
             )
         ),
     )
@@ -1318,7 +1318,7 @@ class scenarioParameters(BaseModel):
                 "The probability of transmission will be multiplied by "
                 "this value when the uninfected individual is over 80 "
                 "years old. The higher this is, the more likely it is that "
-                "uninfected older seniors will catch the disease from "
+                "uninfected older seniors will catch the pathogen from "
                 "others."
             )
         ),
@@ -1433,7 +1433,7 @@ class scenarioParameters(BaseModel):
         description=(
             (
                 "The probability that an individual who is less than 6 "
-                "months old will die as a result of the disease."
+                "months old will die as a result of the pathogen."
             )
         ),
     )
@@ -1443,7 +1443,7 @@ class scenarioParameters(BaseModel):
         description=(
             (
                 "The probability that an individual who is 7-24 months old "
-                "will die as a result of the disease."
+                "will die as a result of the pathogen."
             )
         ),
     )
@@ -1453,7 +1453,7 @@ class scenarioParameters(BaseModel):
         description=(
             (
                 "The probability that an individual who is 3-5 years old "
-                "will die as a result of the disease."
+                "will die as a result of the pathogen."
             )
         ),
     )
@@ -1463,7 +1463,7 @@ class scenarioParameters(BaseModel):
         description=(
             (
                 "The probability that an individual who is 6-12 years old "
-                "will die as a result of the disease."
+                "will die as a result of the pathogen."
             )
         ),
     )
@@ -1473,7 +1473,7 @@ class scenarioParameters(BaseModel):
         description=(
             (
                 "The probability that an individual who is 13-17 years old "
-                "will die as a result of the disease."
+                "will die as a result of the pathogen."
             )
         ),
     )
@@ -1483,7 +1483,7 @@ class scenarioParameters(BaseModel):
         description=(
             (
                 "The probability that an individual who is 18-24 years old "
-                "will die as a result of the disease."
+                "will die as a result of the pathogen."
             )
         ),
     )
@@ -1493,7 +1493,7 @@ class scenarioParameters(BaseModel):
         description=(
             (
                 "The probability that an individual who is 25-44 years old "
-                "will die as a result of the disease."
+                "will die as a result of the pathogen."
             )
         ),
     )
@@ -1503,7 +1503,7 @@ class scenarioParameters(BaseModel):
         description=(
             (
                 "The probability that an individual who is 45-64 years old "
-                "will die as a result of the disease."
+                "will die as a result of the pathogen."
             )
         ),
     )
@@ -1513,7 +1513,7 @@ class scenarioParameters(BaseModel):
         description=(
             (
                 "The probability that an individual who is 65-79 years old "
-                "will die as a result of the disease."
+                "will die as a result of the pathogen."
             )
         ),
     )
@@ -1523,7 +1523,7 @@ class scenarioParameters(BaseModel):
         description=(
             (
                 "The probability that an individual who is over 80 years "
-                "old will die as a result of the disease."
+                "old will die as a result of the pathogen."
             )
         ),
     )
@@ -1752,7 +1752,7 @@ class vaccineDose(BaseModel):
         description=(
             (
                 "The number of cycles before an individual who has received this "
-                "vaccine dose will begin to lose their immunity to the disease."
+                "vaccine dose will begin to lose their immunity to the pathogen."
             )
         ),
     )
@@ -1761,7 +1761,7 @@ class vaccineDose(BaseModel):
         description=(
             (
                 "The proportion of vaccinated individuals who will lose their "
-                "immunity to the disease each cycle, once immunity waning "
+                "immunity to the pathogen each cycle, once immunity waning "
                 "has begun."
             )
         ),
@@ -1885,7 +1885,7 @@ class Parameters(BaseModel):
         description=(
             (
                 "Parameters controlling how individuals naturally gain immunity "
-                "to the disease without requiring infection or vaccination."
+                "to the pathogen without requiring infection or vaccination."
             )
         ),
     )
@@ -1969,7 +1969,7 @@ class Parameters(BaseModel):
         cls, value: Optional[list[Any]], info: ValidationInfo
     ) -> Optional[list[Any]]:
         """
-        Validation function to remove duplicate parameter classes that cover
+        Validation function to detect duplicate parameter classes that cover
         the same element in the simulation (e.g. two `Scenario_Strain` objects
         with the same `StrainId`).
 
@@ -2261,7 +2261,7 @@ class modelGuideFile(BaseModel):
                         `community_used`. Ensure the `name` property of each
                         override in `community_overrides` matches a community
                         in `community_used`.
-                        """)
+                    """)
         return self
 
     """
