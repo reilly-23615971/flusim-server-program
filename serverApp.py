@@ -99,6 +99,7 @@ async def closeSimulation(simulationID: str):
     if deleteGeneratedFiles:
         clearFiles(simData.files)
     del activeSimulations[simulationID]
+    print(f"[closeSimulation] Finished closing simulation with ID {simulationID}\n\n")
 
 
 async def runModel(simulationID: str, config: modelGuideFile):
