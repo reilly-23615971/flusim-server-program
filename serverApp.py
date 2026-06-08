@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
     yield
     # Cancel any remaining processes and delete remaining files
     for task in activeTasks:
-        await closeSimulation(task)
+        await closeTask(task)
 
 
 # Logging config
@@ -94,7 +94,8 @@ flusimApp.add_middleware(
 )
 
 
-async def closeSimulation(taskID: str):
+# Functions and routes for multiple tasks
+async def closeTask(taskID: str):
     """
     Async wrapper to ensure TaskData objects are properly cleaned up
     and tasks are fully cancelled before files are deleted.
@@ -102,7 +103,6 @@ async def closeSimulation(taskID: str):
     Parameters:
         taskID (str): The ID distinguishing this server task.
     """
-    # TODO: Find a way to call this automatically when stopping the server
     TaskData = activeTasks.get(taskID)
     if TaskData is None:
         return
@@ -114,9 +114,64 @@ async def closeSimulation(taskID: str):
     if deleteGeneratedFiles:
         clearFiles(TaskData.files)
     del activeTasks[taskID]
-    print(f"[closeSimulation] Finished closing simulation with ID {taskID}\n\n")
+    print(f"[closeTask] Finished closing task with ID {taskID}\n\n")
 
 
+@flusimApp.websocket("/status/{taskID}")
+async def statusWebSocket(websocket: WebSocket, taskID: str):
+    """
+    Websocket route to deliver task status updates live
+
+    Parameters:
+        websocket (WebSocket): The websocket to send updates to.
+
+        taskID (str): The ID distinguishing this server task.
+
+    Raises:
+        WebSocketException: If the specified ID does not exist (uses 1008 status code).
+    """
+    await websocket.accept()
+    TaskData = activeTasks.get(taskID)
+    if TaskData is None:
+        raise WebSocketException(
+            1008, "The task with the requested ID could not be found"
+        )
+
+    TaskData.websockets.append(websocket)
+
+    try:
+        # Send current status
+        await websocket.send_json({"status": TaskData.status})
+
+        # Keep connection open to send updates
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        TaskData.websockets.remove(websocket)
+
+
+@flusimApp.delete("/cancel/{taskID}", status_code=204)
+async def stopTaskRoute(taskID: str, cleanup: BackgroundTasks):
+    """
+    Async route function to stop a running task.
+
+    Parameters:
+        taskID (str): The ID distinguishing this server task.
+
+        cleanup (BackgroundTasks): An object that will have file removal
+            functions attached to it to remove excess files once this
+            function finishes running.
+
+    Raises:
+        HTTPException: If the specified ID does not exist (uses 404 status code).
+    """
+    TaskData = activeTasks.get(taskID)
+    if TaskData is None:
+        raise HTTPException(404, "The task with the requested ID could not be found")
+    cleanup.add_task(closeTask, taskID)
+
+
+# Running simulation experiments
 async def runModel(taskID: str, config: modelGuideFile):
     """
     Async function to run a simulation experiment based on parameters
@@ -243,7 +298,7 @@ async def runModel(taskID: str, config: modelGuideFile):
         # TODO: Add more info to errors like this
         print(f"Error while running simulation {taskID}:\n{e}")
         await updateStatus(activeTasks[taskID], "error")
-        await closeSimulation(taskID)
+        await closeTask(taskID)
 
 
 @flusimApp.post("/runModel", status_code=202)
@@ -271,39 +326,6 @@ async def runModelRoute(config: modelGuideFile) -> dict[str, str]:
     activeTasks[taskID].tasks.add(runModelTask)
 
     return {"taskID": taskID}
-
-
-@flusimApp.websocket("/status/{taskID}")
-async def statusWebSocket(websocket: WebSocket, taskID: str):
-    """
-    Websocket route to deliver task status updates live
-
-    Parameters:
-        websocket (WebSocket): The websocket to send updates to.
-
-        taskID (str): The ID distinguishing this server task.
-
-    Raises:
-        WebSocketException: If the specified ID does not exist (uses 1008 status code).
-    """
-    await websocket.accept()
-    TaskData = activeTasks.get(taskID)
-    if TaskData is None:
-        raise WebSocketException(
-            1008, "The task with the requested ID could not be found"
-        )
-
-    TaskData.websockets.append(websocket)
-
-    try:
-        # Send current status
-        await websocket.send_json({"status": TaskData.status})
-
-        # Keep connection open to send updates
-        while True:
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        TaskData.websockets.remove(websocket)
 
 
 @flusimApp.get("/runModel/download/{taskID}")
@@ -342,34 +364,12 @@ The analysis results for the simulation with the requested ID could not be found
             """,
         )
 
-    cleanup.add_task(closeSimulation, taskID)
+    cleanup.add_task(closeTask, taskID)
 
     return FileResponse(filePath, filename=os.path.basename(filePath))
 
 
-@flusimApp.delete("/runModel/cancel/{taskID}", status_code=204)
-async def stopSimulation(taskID: str, cleanup: BackgroundTasks):
-    """
-    Async route function to stop a running simulation.
-
-    Parameters:
-        taskID (str): The ID distinguishing this simulation task.
-
-        cleanup (BackgroundTasks): An object that will have file removal
-            functions attached to it to remove excess files once this
-            function finishes running.
-
-    Raises:
-        HTTPException: If the specified ID does not exist (uses 404 status code).
-    """
-    TaskData = activeTasks.get(taskID)
-    if TaskData is None:
-        raise HTTPException(
-            404, "The simulation with the requested ID could not be found"
-        )
-    cleanup.add_task(closeSimulation, taskID)
-
-
+# R0 analysis
 async def calculateR0(taskID: str, params: communityOverride):
     """
     Async function to calculate the basic reproduction number for a given scenario
@@ -414,7 +414,7 @@ async def calculateR0(taskID: str, params: communityOverride):
         # TODO: Add more info to errors like this
         print(f"Error while running simulation {taskID}:\n{e}")
         await updateStatus(activeTasks[taskID], "error")
-        await closeSimulation(taskID)
+        await closeTask(taskID)
 
 
 @flusimApp.post("/r0/calculate", status_code=202)
@@ -441,3 +441,40 @@ async def r0CalculationRoute(config: communityOverride) -> dict[str, str]:
     activeTasks[taskID].tasks.add(calculateTask)
 
     return {"taskID": taskID}
+
+
+@flusimApp.get("/r0/calculate/results/{taskID}")
+async def r0CalculationResults(taskID: str, cleanup: BackgroundTasks):
+    """
+    Async route function to obtain the results of r0 calculation.
+
+    Parameters:
+        taskID (str): The ID distinguishing this server task.
+
+        cleanup (BackgroundTasks): An object that will have file removal
+            functions attached to it to remove simulation data once this
+            function finishes running.
+
+    Raises:
+        HTTPException: If the specified ID does not exist or has no results
+            (uses 404 status code) or is still running (raises 503 status code).
+    """
+    TaskData = activeTasks.get(taskID)
+    if TaskData is None:
+        raise HTTPException(404, "The task with the requested ID could not be found")
+
+    currentStatus = TaskData.status
+    if currentStatus != "completed":
+        raise HTTPException(503, "The requested task is still ongoing")
+
+    resultsDict = TaskData.results
+
+    if not isinstance(resultsDict, dict):
+        raise HTTPException(
+            404,
+            "The r0 estimate for the task with the requested ID could not be found",
+        )
+
+    cleanup.add_task(closeTask, taskID)
+
+    return resultsDict
