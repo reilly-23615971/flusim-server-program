@@ -395,8 +395,7 @@ async def calculateR0(taskID: str, params: communityOverride):
         await runCalculation(community, paramPath, toolboxPath)
 
         print(f"""
-            \nR0 calculation complete in {displayTime(overallStartTime)},
-            ready to return data\n
+R0 calculation complete in {displayTime(overallStartTime)}, ready to return data
         """)
 
         await updateStatus(taskData, "completed")

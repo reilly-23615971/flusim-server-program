@@ -45,11 +45,45 @@ def generateCalibrationConfig(task: SimData, params: communityOverride) -> str:
     # Log filename preemptively in case of cancellation
     r0ConfigPath = f"tempFiles/r0_config_{task.simulationID}.json"
     task.files.add(r0ConfigPath)
-    print(f"""
-        [generateToolboxConfig] Generating r0 configuration file {r0ConfigPath}...
-    """)
+    print(
+        (
+            "[generateCalibrationConfig] Generating r0 "
+            f"configuration file {r0ConfigPath}"
+        )
+    )
+
+    # Exclude unused parameters and community name
+    '''testParams = params.model_copy(deep=True)
+    del testParams.name'''
+    excludedParams = {
+        "parameters": {
+            "Scenario_Parameter": {
+                "start_day_of_week",
+                "kappa_adult_education",
+                "kappa_child_care",
+                "kappa_hospital",
+                "withdrawal_period",
+                "hospitalisation_rate",
+                "max_adult_class_size",
+                "max_neighbourgroup_size",
+                "max_churchgroup_size",
+                "max_class_count",
+                "pandemic_alert",
+                "close_childcare",
+                "close_child_education",
+                "close_adult_education",
+                "prob_work_nonattendance",
+                "work_nonattendance_trigger",
+                "work_nonattendance_relaxation",
+                "work_nonattendance_delay",
+                "work_nonattendance_duration",
+                "vaccination_priority",
+                "withdrawal_period",
+            },
+        }
+    }
     with open(r0ConfigPath, "w") as file:
-        file.write(params.model_dump_json(indent=2, exclude={"name"}))
+        file.write(params.model_dump_json(indent=2, exclude_none=True, exclude=excludedParams))
     return r0ConfigPath
 
 
@@ -79,11 +113,11 @@ async def runCalculation(communityName: str, configPath: str, toolboxPath: str):
 
     # Calculate R0
     R0CalculationCommand().run_command(
-        Namespace(scenario=configPath, log_level=LogLevel.DEBUG), config=toolboxConfig
+        Namespace(community=communityName, scenario=configPath, use_baseline=True, sample_size=2000, log_level=LogLevel.DEBUG), config=toolboxConfig
     )
 
     # TODO: Find a way to read the value of R0 from the C++ command
 
     print(f"""
-        [runCalculation] Finished calculating r0 in {displayTime(runStartTime)}\n
+[runCalculation] Finished calculating r0 in {displayTime(runStartTime)}\n
     """)
