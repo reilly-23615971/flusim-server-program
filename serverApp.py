@@ -10,6 +10,7 @@ import logging
 import os
 import uuid
 import zipfile
+from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import (
@@ -42,6 +43,18 @@ from ServerFiles.SimulationFunctions import (
     runSimulation,
 )
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Function to cancel any remaining tasks when the app shuts down
+    """
+    yield
+    # Cancel any remaining processes and delete remaining files
+    for task in activeTasks:
+        await closeSimulation(task)
+
+
 # Logging config
 # TODO: Try to fix the logging loop again without --no-reload
 os.makedirs("tempFiles", exist_ok=True)
@@ -68,8 +81,8 @@ if not os.path.isfile(executableLocation):
     """)
 
 
-# Define main Flusim app and dictionary for
-flusimApp = FastAPI()
+# Define main Flusim app
+flusimApp = FastAPI(lifespan=lifespan)
 
 # CORS Middleware for ensuring only the web application can make requests
 flusimApp.add_middleware(
