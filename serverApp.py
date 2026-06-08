@@ -23,9 +23,9 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-from ServerFiles.ModelSchema import modelGuideFile
+from ServerFiles.ModelSchema import communityOverride, modelGuideFile
 from ServerFiles.SharedResources import (
-    activeSimulations,
+    activeTasks,
     clearFiles,
     deleteGeneratedFiles,
     executableLocation,
@@ -40,6 +40,7 @@ from ServerFiles.SimulationFunctions import (
     generateToolboxConfig,
     runSimulation,
 )
+from ServerFiles.R0Functions import generateCalibrationConfig, runCalculation
 
 # Logging config
 # TODO: Try to fix the logging loop again without --no-reload
@@ -88,7 +89,7 @@ async def closeSimulation(simulationID: str):
     Parameters:
         simulationID (str): The ID distinguishing this simulation task.
     """
-    simData = activeSimulations.get(simulationID)
+    simData = activeTasks.get(simulationID)
     if simData is None:
         return
 
@@ -98,7 +99,7 @@ async def closeSimulation(simulationID: str):
     await simData.stopTasks()
     if deleteGeneratedFiles:
         clearFiles(simData.files)
-    del activeSimulations[simulationID]
+    del activeTasks[simulationID]
     print(f"[closeSimulation] Finished closing simulation with ID {simulationID}\n\n")
 
 
@@ -119,7 +120,7 @@ async def runModel(simulationID: str, config: modelGuideFile):
         overallStartTime = datetime.now()
 
         # Get relevant attributes from config file and sim data
-        simData = activeSimulations.get(simulationID)
+        simData = activeTasks.get(simulationID)
         if simData is None:
             raise ValueError("The simulation with the requested ID could not be found")
         fileID = config.description
@@ -227,7 +228,7 @@ async def runModel(simulationID: str, config: modelGuideFile):
     except Exception as e:
         # TODO: Add more info to errors like this
         print(f"Error while running simulation {simulationID}:\n{e}")
-        await updateStatus(activeSimulations[simulationID], "error")
+        await updateStatus(activeTasks[simulationID], "error")
         await closeSimulation(simulationID)
 
 
@@ -249,11 +250,11 @@ async def runModelRoute(config: modelGuideFile) -> dict[str, str]:
     """
     # TODO: Make simulationID a cookie if it helps with reload preservation
     simulationID = str(uuid.uuid4())
-    activeSimulations[simulationID] = SimData(simulationID)
+    activeTasks[simulationID] = SimData(simulationID)
 
     runModelTask = asyncio.create_task(runModel(simulationID, config))
 
-    activeSimulations[simulationID].tasks.add(runModelTask)
+    activeTasks[simulationID].tasks.add(runModelTask)
 
     return {"simulationID": simulationID}
 
@@ -272,7 +273,7 @@ async def statusWebSocket(websocket: WebSocket, simulationID: str):
         WebSocketException: If the specified ID does not exist (uses 1008 status code).
     """
     await websocket.accept()
-    simData = activeSimulations.get(simulationID)
+    simData = activeTasks.get(simulationID)
     if simData is None:
         raise WebSocketException(
             1008, "The simulation with the requested ID could not be found"
@@ -307,7 +308,7 @@ async def downloadSimulationResults(simulationID: str, cleanup: BackgroundTasks)
         HTTPException: If the specified ID does not exist or has no results
             (uses 404 status code) or is still running (raises 503 status code).
     """
-    simData = activeSimulations.get(simulationID)
+    simData = activeTasks.get(simulationID)
     if simData is None:
         raise HTTPException(
             404, "The simulation with the requested ID could not be found"
@@ -347,9 +348,86 @@ async def stopSimulation(simulationID: str, cleanup: BackgroundTasks):
     Raises:
         HTTPException: If the specified ID does not exist (uses 404 status code).
     """
-    simData = activeSimulations.get(simulationID)
+    simData = activeTasks.get(simulationID)
     if simData is None:
         raise HTTPException(
             404, "The simulation with the requested ID could not be found"
         )
     cleanup.add_task(closeSimulation, simulationID)
+
+
+async def calculateR0(taskID: str, params: communityOverride):
+    """
+    Async function to calculate the basic reproduction number for a given scenario
+
+    Parameters:
+        taskID (str): The ID distinguishing this server task.
+
+        params (communityOverride): The parameters to calculate the reproduction
+            number for.
+    """
+
+    try:
+        # Wait 1 second for the websocket to connect
+        await asyncio.sleep(1)
+        overallStartTime = datetime.now()
+
+        # Get relevant attributes from config file and sim data
+        taskData = activeTasks.get(taskID)
+        if taskData is None:
+            raise ValueError("The simulation with the requested ID could not be found")
+        community = params.name
+        print(f"R0 calculation requested, ID = {taskID}")
+
+        # Log the files that will be created over the course of the simulation
+        taskData.files = set()
+
+        # Generate config files
+        await updateStatus(taskData, "generatingToolbox")
+        toolboxPath = generateToolboxConfig(taskData, "1000", "-r0Calculation")
+        await updateStatus(taskData, "generatingConfig")
+        paramPath = generateCalibrationConfig(taskData, params)
+        print(
+            f"Toolbox file located at {toolboxPath}; parameters located at {paramPath}"
+        )
+
+        # Run the Flusim simulation
+        await runCalculation(community, paramPath, toolboxPath)
+
+        print(f"""
+            \nR0 calculation complete in {displayTime(overallStartTime)},
+            ready to return data\n
+        """)
+
+        await updateStatus(taskData, "completed")
+    except Exception as e:
+        # TODO: Add more info to errors like this
+        print(f"Error while running simulation {taskID}:\n{e}")
+        await updateStatus(activeTasks[taskID], "error")
+        await closeSimulation(taskID)
+
+
+@flusimApp.post("/r0/calculate", status_code=202)
+async def r0CalculationRoute(config: communityOverride) -> dict[str, str]:
+    """
+    Async route function to calculate the basic reproduction number for a given scenario
+
+    Parameters:
+        config (modelGuideFile): The parameters and other settings that
+            will define the simulation experiment.
+
+    Returns:
+        dict: A dictionary containing the ID assigned to this particular
+            simulation run. A dictionary is used rather than returning the ID
+            directly as an int to ensure corrupted data is not read by the
+            dashboard client.
+    """
+    # TODO: Make simulationID a cookie if it helps with reload preservation
+    taskID = str(uuid.uuid4())
+    activeTasks[taskID] = SimData(taskID)
+
+    calculateTask = asyncio.create_task(calculateR0(taskID, config))
+
+    activeTasks[taskID].tasks.add(calculateTask)
+
+    return {"simulationID": taskID}

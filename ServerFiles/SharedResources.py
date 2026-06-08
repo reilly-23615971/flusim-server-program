@@ -54,6 +54,7 @@ class SimData:
     @property
     def websockets(self):
         """Websockets tied to the client that requested this simulation"""
+        # TODO: Does this need to be a list? 1 websocket per sim is normal
         return self._websockets
 
     @websockets.setter
@@ -62,6 +63,7 @@ class SimData:
 
     @websockets.deleter
     def websockets(self):
+        # TODO: Should websockets be closed in this case?
         del self._websockets
 
     @property
@@ -127,8 +129,8 @@ class SimData:
             await asyncio.gather(*self.tasks, return_exceptions=True)
 
 
-# Dict to store active simulations
-activeSimulations: dict[str, SimData] = dict()
+# Dict to store active tasks
+activeTasks: dict[str, SimData] = dict()
 
 
 def clearFiles(files: set[str]):
