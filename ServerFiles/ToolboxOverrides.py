@@ -23,8 +23,9 @@ overrideLog = logging.getLogger(__name__)
 
 # TODO: Just modify the toolbox repo itself rather than using these workarounds
 
+from commands.Run.RunCommand import RunCommand
 
-class RunCommandWithData:
+class RunCommandWithData(RunCommand):
     """
     Modified version of the toolbox's RunCommand that contains a SimData object,
     allowing for updates to its status and mid-simulation termination
@@ -40,10 +41,7 @@ class RunCommandWithData:
         super().__init__()
         self.sim = sim
 
-    def configure_parser_options(self, parser: ArgumentParser) -> None:
-        parser.add_argument("guide", type=str, help="the guide file")
-
-    async def run_command(self, args: Namespace, config: ToolboxConfiguration) -> None:
+    async def run_command_async(self, args: Namespace, config: ToolboxConfiguration) -> None:
         from commands.Run.ScenarioBuilder import ScenarioBuilder
 
         startTime = time.monotonic()
