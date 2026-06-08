@@ -53,7 +53,8 @@ async def lifespan(app: FastAPI):
     # Cancel any remaining processes and delete remaining files
     tasksToClose = list(activeTasks.keys())
     for task in tasksToClose:
-        await updateStatus(activeTasks[task], "shutdown")
+        # TODO: Is sending one last message before sockets disconnect possible?
+        # await updateStatus(activeTasks[task], "shutdown")
         await closeTask(task)
 
 

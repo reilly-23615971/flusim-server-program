@@ -168,6 +168,8 @@ async def updateStatus(sim: TaskData, state: str):
 
     # Broadcast to connected WebSockets
     message = {"status": state}
+    if not sim.websockets:
+        sharedLog.warning(f"Task {sim.taskID} had no websockets it could update to {message}\n")
     for websocket in sim.websockets:
         try:
             await websocket.send_json(message)
