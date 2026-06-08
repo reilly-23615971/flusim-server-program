@@ -1,4 +1,0 @@
-[tool.uvicorn]
-
-reload = true
-reload_excludes = ["serverAppLogs.txt"]
