@@ -51,7 +51,9 @@ async def lifespan(app: FastAPI):
     """
     yield
     # Cancel any remaining processes and delete remaining files
-    for task in activeTasks:
+    tasksToClose = list(activeTasks.keys())
+    for task in tasksToClose:
+        await updateStatus(activeTasks[task], "shutdown")
         await closeTask(task)
 
 
@@ -325,7 +327,7 @@ async def runModelRoute(config: modelGuideFile) -> dict[str, str]:
 
     activeTasks[taskID].tasks.add(runModelTask)
 
-    return {"taskID": taskID}
+    return {"simulationID": taskID}
 
 
 @flusimApp.get("/runModel/download/{taskID}")
