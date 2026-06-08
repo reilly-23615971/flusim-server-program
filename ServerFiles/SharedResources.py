@@ -10,6 +10,7 @@ import sys
 from asyncio import Task
 from datetime import datetime
 from subprocess import Popen
+from typing import Any
 
 from fastapi import WebSocket
 
@@ -32,13 +33,13 @@ sys.path.append(
 )
 
 
-class SimData:
+class TaskData:
     """
-    Class for information regarding a simulation
+    Class for information regarding a server task
     """
 
-    def __init__(self, simulationID: str):
-        self._simulationID = simulationID
+    def __init__(self, taskID):
+        self._taskID = taskID
         self._websockets = []
         self._tasks = set()
         self._process = None
@@ -47,9 +48,9 @@ class SimData:
         self._results = None
 
     @property
-    def simulationID(self):
+    def taskID(self):
         """ID associated with this simulation"""
-        return self._simulationID
+        return self._taskID
 
     @property
     def websockets(self):
@@ -110,11 +111,11 @@ class SimData:
 
     @property
     def results(self):
-        """Path to file containing analysed simulation results"""
+        """Either the results to be returned, or the path to the returned file"""
         return self._results
 
     @results.setter
-    def results(self, value: str):
+    def results(self, value: Any):
         self._results = value
 
     async def stopTasks(self):
@@ -130,7 +131,7 @@ class SimData:
 
 
 # Dict to store active tasks
-activeTasks: dict[str, SimData] = dict()
+activeTasks: dict[str, TaskData] = dict()
 
 
 def clearFiles(files: set[str]):
@@ -153,16 +154,16 @@ def clearFiles(files: set[str]):
             print(" (not found)")
 
 
-async def updateStatus(sim: SimData, state: str):
+async def updateStatus(sim: TaskData, state: str):
     """
     Simple async function to update the returned status of a server operation.
 
     Parameters:
-        sim (SimData): The object containing the data used for this simulation.
+        sim (TaskData): The object containing the data used for this simulation.
 
         state (str): The state to set the task to.
     """
-    # TODO: If other tasks don't use SimData modify the parameters here
+    # TODO: If other tasks don't use TaskData modify the parameters here
     sim.status = state
 
     # Broadcast to connected WebSockets
@@ -170,10 +171,10 @@ async def updateStatus(sim: SimData, state: str):
     for websocket in sim.websockets:
         try:
             await websocket.send_json(message)
-            sharedLog.info(f"Status for {sim.simulationID} updated to {message}\n")
+            sharedLog.info(f"Status for {sim.taskID} updated to {message}\n")
         except Exception as e:
             sharedLog.error(f"""
-Status for {sim.simulationID} wasn't updated to {message} due to the following error:
+Status for {sim.taskID} wasn't updated to {message} due to the following error:
 {e}\n
             """)
 

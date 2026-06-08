@@ -3,19 +3,18 @@
 # Functions for calibrating or calculating basic reproduction numbers
 
 # Imports
-import json
 import logging
 import os
+import re
 import sys
 from argparse import Namespace
 from datetime import datetime
-from typing import Optional
 
 import pandas as pd
 
-from ServerFiles.ModelSchema import communityOverride, modelGuideFile
+from ServerFiles.ModelSchema import communityOverride
 from ServerFiles.SharedResources import (
-    SimData,
+    TaskData,
     displayTime,
     simLocation,
     toolboxLocation,
@@ -30,12 +29,12 @@ sys.path.append(
 )
 
 
-def generateCalibrationConfig(task: SimData, params: communityOverride) -> str:
+def generateCalibrationConfig(task: TaskData, params: communityOverride) -> str:
     """
     Function to generate the required parameter config file for r0 calibration
 
     Parameters:
-        task (SimData): The object containing the data used for this task.
+        task (TaskData): The object containing the data used for this task.
 
         params (communityOverride): The parameters to save to the config.
 
@@ -43,7 +42,7 @@ def generateCalibrationConfig(task: SimData, params: communityOverride) -> str:
         str: The file path for the newly created configuration file.
     """
     # Log filename preemptively in case of cancellation
-    r0ConfigPath = f"tempFiles/r0_config_{task.simulationID}.json"
+    r0ConfigPath = f"tempFiles/r0_config_{task.taskID}.json"
     task.files.add(r0ConfigPath)
     print(
         (
@@ -52,9 +51,7 @@ def generateCalibrationConfig(task: SimData, params: communityOverride) -> str:
         )
     )
 
-    # Exclude unused parameters and community name
-    '''testParams = params.model_copy(deep=True)
-    del testParams.name'''
+    # Exclude unused parameters
     excludedParams = {
         "parameters": {
             "Scenario_Parameter": {
@@ -83,7 +80,9 @@ def generateCalibrationConfig(task: SimData, params: communityOverride) -> str:
         }
     }
     with open(r0ConfigPath, "w") as file:
-        file.write(params.model_dump_json(indent=2, exclude_none=True, exclude=excludedParams))
+        file.write(
+            params.model_dump_json(indent=2, exclude_none=True, exclude=excludedParams)
+        )
     return r0ConfigPath
 
 
@@ -106,18 +105,38 @@ async def runCalculation(communityName: str, configPath: str, toolboxPath: str):
     from logger import LogLevel
     from ToolboxConfiguration import ToolboxConfiguration
 
-    from commands.R0Calculation import R0CalculationCommand
+    from ServerFiles.ToolboxOverrides import R0CalculationWithData
 
     runStartTime = datetime.now()
     toolboxConfig = ToolboxConfiguration(toolboxPath)
 
     # Calculate R0
-    R0CalculationCommand().run_command(
-        Namespace(community=communityName, scenario=configPath, use_baseline=True, sample_size=2000, log_level=LogLevel.DEBUG), config=toolboxConfig
+    commandOutput = await R0CalculationWithData().run_command_async(
+        Namespace(
+            community=communityName,
+            scenario=configPath,
+            use_baseline=True,
+            sample_size=2000,
+            log_level=LogLevel.DEBUG,
+        ),
+        config=toolboxConfig,
     )
-
-    # TODO: Find a way to read the value of R0 from the C++ command
+    if commandOutput is not None:
+        results = commandOutput.splitlines()[-1].decode()
+        resultMatches = re.search(
+            r"R0 calculated to be (.*?) with 95% confidence interval of \[(.*?), (.*?)\]",
+            results,
+        )
+        if resultMatches:
+            r0 = float(resultMatches.group(1))
+            lowerBound = float(resultMatches.group(2))
+            upperBound = float(resultMatches.group(3))
+            print(f"""
+[runCalculation] Finished calculating r0 in {displayTime(runStartTime)}\n
+            """)
+            return r0, (lowerBound, upperBound)
 
     print(f"""
-[runCalculation] Finished calculating r0 in {displayTime(runStartTime)}\n
+[runCalculation] Failed to calculate r0 after {displayTime(runStartTime)}\n
     """)
+    return None, (None, None)

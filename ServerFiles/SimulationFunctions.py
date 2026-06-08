@@ -15,7 +15,7 @@ import pandas as pd
 
 from ServerFiles.ModelSchema import modelGuideFile
 from ServerFiles.SharedResources import (
-    SimData,
+    TaskData,
     displayTime,
     simLocation,
     toolboxLocation,
@@ -31,13 +31,13 @@ sys.path.append(
 
 
 def generateToolboxConfig(
-    sim: SimData, fileID: Optional[str], joint: Optional[str]
+    sim: TaskData, fileID: Optional[str], joint: Optional[str]
 ) -> str:
     """
     Function to generate the required toolbox config file for a simulation experiment
 
     Parameters:
-        sim (SimData): The object containing the data used for this simulation.
+        sim (TaskData): The object containing the data used for this simulation.
 
         fileID (str): The numeric identifier for the files generated for this
             simulation, stored as a string.
@@ -77,7 +77,7 @@ def generateToolboxConfig(
 
 
 async def runSimulation(
-    sim: SimData,
+    sim: TaskData,
     fileID: Optional[str],
     configData: modelGuideFile,
     toolboxPath: str,
@@ -86,7 +86,7 @@ async def runSimulation(
     Function to run a simulation experiment using the given config files
 
     Parameters:
-        sim (SimData): The object containing the data used for this simulation.
+        sim (TaskData): The object containing the data used for this simulation.
 
         fileID (str): The numeric identifier for the files generated for this
             simulation, stored as a string.
@@ -131,7 +131,7 @@ async def runSimulation(
         file.write(configData.model_dump_json(indent=2, exclude_unset=True))
 
     # Run the simulation
-    await RunCommandWithData(sim=sim).run_command(
+    await RunCommandWithData(sim=sim).run_command_async(
         Namespace(guide=guidePath, log_level=LogLevel.DEBUG), toolboxConfig
     )
     print(
@@ -141,7 +141,7 @@ async def runSimulation(
 
 
 def epidemic(
-    sim: SimData,
+    sim: TaskData,
     fileID: Optional[str],
     communityName: str,
     joint: Optional[str],
@@ -152,10 +152,10 @@ def epidemic(
 ) -> list[str]:
     """
     Wrapper to run the epidemic toolbox command on a given simulation output,
-    generating epidemic curves in CSV format.
+    generating epidemic curves in CSV format
 
     Parameters:
-        sim (SimData): The object containing the data used for this simulation.
+        sim (TaskData): The object containing the data used for this simulation.
 
         fileID (str): The numeric identifier for the files generated for this
             simulation, stored as a string.
@@ -253,7 +253,7 @@ def epidemic(
 
 # Function for asir toolbox function
 def asir(
-    sim: SimData,
+    sim: TaskData,
     fileID: Optional[str],
     communityName: str,
     joint: Optional[str],
@@ -269,7 +269,7 @@ def asir(
     generating age-separated infection rates in CSV format.
 
     Parameters:
-        sim (SimData): The object containing the data used for this simulation.
+        sim (TaskData): The object containing the data used for this simulation.
 
         fileID (str): The numeric identifier for the files generated for this
             simulation, stored as a string.

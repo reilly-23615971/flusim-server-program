@@ -24,6 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from ServerFiles.ModelSchema import communityOverride, modelGuideFile
+from ServerFiles.R0Functions import generateCalibrationConfig, runCalculation
 from ServerFiles.SharedResources import (
     activeTasks,
     clearFiles,
@@ -33,14 +34,13 @@ from ServerFiles.SharedResources import (
     updateStatus,
 )
 from ServerFiles.SimulationFunctions import (
-    SimData,
+    TaskData,
     asir,
     displayTime,
     epidemic,
     generateToolboxConfig,
     runSimulation,
 )
-from ServerFiles.R0Functions import generateCalibrationConfig, runCalculation
 
 # Logging config
 # TODO: Try to fix the logging loop again without --no-reload
@@ -81,35 +81,36 @@ flusimApp.add_middleware(
 )
 
 
-async def closeSimulation(simulationID: str):
+async def closeSimulation(taskID: str):
     """
-    Async wrapper to ensure SimData objects are properly cleaned up
+    Async wrapper to ensure TaskData objects are properly cleaned up
     and tasks are fully cancelled before files are deleted.
 
     Parameters:
-        simulationID (str): The ID distinguishing this simulation task.
+        taskID (str): The ID distinguishing this server task.
     """
-    simData = activeTasks.get(simulationID)
-    if simData is None:
+    # TODO: Find a way to call this automatically when stopping the server
+    TaskData = activeTasks.get(taskID)
+    if TaskData is None:
         return
 
-    # Cancel tasks, delete files and remove the simulation data
-    if simData.process is not None:
-        simData.process.terminate()
-    await simData.stopTasks()
+    # Cancel tasks, delete files and remove simulation data
+    if TaskData.process is not None:
+        TaskData.process.terminate()
+    await TaskData.stopTasks()
     if deleteGeneratedFiles:
-        clearFiles(simData.files)
-    del activeTasks[simulationID]
-    print(f"[closeSimulation] Finished closing simulation with ID {simulationID}\n\n")
+        clearFiles(TaskData.files)
+    del activeTasks[taskID]
+    print(f"[closeSimulation] Finished closing simulation with ID {taskID}\n\n")
 
 
-async def runModel(simulationID: str, config: modelGuideFile):
+async def runModel(taskID: str, config: modelGuideFile):
     """
     Async function to run a simulation experiment based on parameters
     from the dashboard, then zip the analysed statistics.
 
     Parameters:
-        simulationID (str): The ID distinguishing this simulation task.
+        taskID (str): The ID distinguishing this simulation task.
 
         config (modelGuideFile): The parameters and other settings that
             will define the simulation experiment.
@@ -120,25 +121,25 @@ async def runModel(simulationID: str, config: modelGuideFile):
         overallStartTime = datetime.now()
 
         # Get relevant attributes from config file and sim data
-        simData = activeTasks.get(simulationID)
-        if simData is None:
+        TaskData = activeTasks.get(taskID)
+        if TaskData is None:
             raise ValueError("The simulation with the requested ID could not be found")
         fileID = config.description
         community = config.community_used[0]
         middleJoint = config.middle_joint
-        print(f"Simulation received; name = {config.name}, ID = {simulationID}")
+        print(f"Simulation received; name = {config.name}, ID = {taskID}")
 
         # Log the files that will be created over the course of the simulation
-        simData.files = set()
+        TaskData.files = set()
         analysisFiles = []
 
         # Generate toolbox config file
-        await updateStatus(simData, "generatingConfig")
-        toolboxPath = generateToolboxConfig(simData, fileID, middleJoint)
+        await updateStatus(TaskData, "generatingConfig")
+        toolboxPath = generateToolboxConfig(TaskData, fileID, middleJoint)
         print(f"Toolbox file located at {toolboxPath}")
 
         # Run the Flusim simulation
-        await runSimulation(simData, fileID, config, toolboxPath)
+        await runSimulation(TaskData, fileID, config, toolboxPath)
 
         # TODO: Use middle joint to determine analyses to run
         # (or find a way to send the data forms to the server directly)
@@ -146,10 +147,10 @@ async def runModel(simulationID: str, config: modelGuideFile):
         # for now, just get the standard analyses the dashboard uses
 
         # Daily infection epidemic curve
-        await updateStatus(simData, "toolboxAnalysis0")
+        await updateStatus(TaskData, "toolboxAnalysis0")
         analysisFiles += await asyncio.to_thread(
             epidemic,
-            simData,
+            TaskData,
             fileID,
             community,
             middleJoint,
@@ -158,10 +159,10 @@ async def runModel(simulationID: str, config: modelGuideFile):
         )
 
         # Cumulative infection epidemic curve
-        await updateStatus(simData, "toolboxAnalysis1")
+        await updateStatus(TaskData, "toolboxAnalysis1")
         analysisFiles += await asyncio.to_thread(
             epidemic,
-            simData,
+            TaskData,
             fileID,
             community,
             middleJoint,
@@ -170,10 +171,10 @@ async def runModel(simulationID: str, config: modelGuideFile):
         )
 
         # Age-separated infection rates
-        await updateStatus(simData, "toolboxAnalysis2")
+        await updateStatus(TaskData, "toolboxAnalysis2")
         analysisFiles += await asyncio.to_thread(
             asir,
-            simData,
+            TaskData,
             fileID,
             community,
             middleJoint,
@@ -182,10 +183,10 @@ async def runModel(simulationID: str, config: modelGuideFile):
 
         # Vaccinated age-separated infection rates
         if middleJoint and "+vaccine" in middleJoint:
-            await updateStatus(simData, "toolboxAnalysis3")
+            await updateStatus(TaskData, "toolboxAnalysis3")
             analysisFiles += await asyncio.to_thread(
                 asir,
-                simData,
+                TaskData,
                 fileID,
                 community,
                 middleJoint,
@@ -198,7 +199,7 @@ async def runModel(simulationID: str, config: modelGuideFile):
             print("No analyses specified; defaulting to epidemic")
             analysisFiles += await asyncio.to_thread(
                 epidemic,
-                simData,
+                TaskData,
                 fileID,
                 community,
                 middleJoint,
@@ -210,26 +211,26 @@ async def runModel(simulationID: str, config: modelGuideFile):
             print("   ", file)
 
         # Zip together the analysis files
-        await updateStatus(simData, "zippingAnalysis")
+        await updateStatus(TaskData, "zippingAnalysis")
         zipPath = f"tempFiles/analysis_files_{fileID}_.zip"
-        simData.files.add(zipPath)
+        TaskData.files.add(zipPath)
         with zipfile.ZipFile(zipPath, mode="w") as analysis:
             for file in analysisFiles:
                 analysis.write(file)
 
-        simData.results = zipPath
+        TaskData.results = zipPath
 
         print(
             f"\nSimulation request for session {fileID} complete in "
             f"{displayTime(overallStartTime)}, ready to return data\n"
         )
 
-        await updateStatus(simData, "completed")
+        await updateStatus(TaskData, "completed")
     except Exception as e:
         # TODO: Add more info to errors like this
-        print(f"Error while running simulation {simulationID}:\n{e}")
-        await updateStatus(activeTasks[simulationID], "error")
-        await closeSimulation(simulationID)
+        print(f"Error while running simulation {taskID}:\n{e}")
+        await updateStatus(activeTasks[taskID], "error")
+        await closeSimulation(taskID)
 
 
 @flusimApp.post("/runModel", status_code=202)
@@ -248,57 +249,57 @@ async def runModelRoute(config: modelGuideFile) -> dict[str, str]:
             directly as an int to ensure corrupted data is not read by the
             dashboard client.
     """
-    # TODO: Make simulationID a cookie if it helps with reload preservation
-    simulationID = str(uuid.uuid4())
-    activeTasks[simulationID] = SimData(simulationID)
+    # TODO: Make taskID a cookie if it helps with reload preservation
+    taskID = str(uuid.uuid4())
+    activeTasks[taskID] = TaskData(taskID)
 
-    runModelTask = asyncio.create_task(runModel(simulationID, config))
+    runModelTask = asyncio.create_task(runModel(taskID, config))
 
-    activeTasks[simulationID].tasks.add(runModelTask)
+    activeTasks[taskID].tasks.add(runModelTask)
 
-    return {"simulationID": simulationID}
+    return {"taskID": taskID}
 
 
-@flusimApp.websocket("/runModel/status/{simulationID}")
-async def statusWebSocket(websocket: WebSocket, simulationID: str):
+@flusimApp.websocket("/status/{taskID}")
+async def statusWebSocket(websocket: WebSocket, taskID: str):
     """
-    Websocket route to deliver simulation status updates live
+    Websocket route to deliver task status updates live
 
     Parameters:
         websocket (WebSocket): The websocket to send updates to.
 
-        simulationID (str): The ID distinguishing this simulation task.
+        taskID (str): The ID distinguishing this server task.
 
     Raises:
         WebSocketException: If the specified ID does not exist (uses 1008 status code).
     """
     await websocket.accept()
-    simData = activeTasks.get(simulationID)
-    if simData is None:
+    TaskData = activeTasks.get(taskID)
+    if TaskData is None:
         raise WebSocketException(
-            1008, "The simulation with the requested ID could not be found"
+            1008, "The task with the requested ID could not be found"
         )
 
-    simData.websockets.append(websocket)
+    TaskData.websockets.append(websocket)
 
     try:
         # Send current status
-        await websocket.send_json({"status": simData.status})
+        await websocket.send_json({"status": TaskData.status})
 
         # Keep connection open to send updates
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
-        simData.websockets.remove(websocket)
+        TaskData.websockets.remove(websocket)
 
 
-@flusimApp.get("/runModel/download/{simulationID}")
-async def downloadSimulationResults(simulationID: str, cleanup: BackgroundTasks):
+@flusimApp.get("/runModel/download/{taskID}")
+async def downloadSimulationResults(taskID: str, cleanup: BackgroundTasks):
     """
     Async route function to obtain the results of a simulation experiment.
 
     Parameters:
-        simulationID (str): The ID distinguishing this simulation task.
+        taskID (str): The ID distinguishing this simulation task.
 
         cleanup (BackgroundTasks): An object that will have file removal
             functions attached to it to remove simulation data once this
@@ -308,17 +309,17 @@ async def downloadSimulationResults(simulationID: str, cleanup: BackgroundTasks)
         HTTPException: If the specified ID does not exist or has no results
             (uses 404 status code) or is still running (raises 503 status code).
     """
-    simData = activeTasks.get(simulationID)
-    if simData is None:
+    TaskData = activeTasks.get(taskID)
+    if TaskData is None:
         raise HTTPException(
             404, "The simulation with the requested ID could not be found"
         )
 
-    currentStatus = simData.status
+    currentStatus = TaskData.status
     if currentStatus != "completed":
         raise HTTPException(503, "The requested simulation is still ongoing")
 
-    filePath = simData.results
+    filePath = TaskData.results
 
     if not filePath or not os.path.exists(filePath):
         raise HTTPException(
@@ -328,18 +329,18 @@ The analysis results for the simulation with the requested ID could not be found
             """,
         )
 
-    cleanup.add_task(closeSimulation, simulationID)
+    cleanup.add_task(closeSimulation, taskID)
 
     return FileResponse(filePath, filename=os.path.basename(filePath))
 
 
-@flusimApp.delete("/runModel/cancel/{simulationID}", status_code=204)
-async def stopSimulation(simulationID: str, cleanup: BackgroundTasks):
+@flusimApp.delete("/runModel/cancel/{taskID}", status_code=204)
+async def stopSimulation(taskID: str, cleanup: BackgroundTasks):
     """
     Async route function to stop a running simulation.
 
     Parameters:
-        simulationID (str): The ID distinguishing this simulation task.
+        taskID (str): The ID distinguishing this simulation task.
 
         cleanup (BackgroundTasks): An object that will have file removal
             functions attached to it to remove excess files once this
@@ -348,12 +349,12 @@ async def stopSimulation(simulationID: str, cleanup: BackgroundTasks):
     Raises:
         HTTPException: If the specified ID does not exist (uses 404 status code).
     """
-    simData = activeTasks.get(simulationID)
-    if simData is None:
+    TaskData = activeTasks.get(taskID)
+    if TaskData is None:
         raise HTTPException(
             404, "The simulation with the requested ID could not be found"
         )
-    cleanup.add_task(closeSimulation, simulationID)
+    cleanup.add_task(closeSimulation, taskID)
 
 
 async def calculateR0(taskID: str, params: communityOverride):
@@ -370,7 +371,6 @@ async def calculateR0(taskID: str, params: communityOverride):
     try:
         # Wait 1 second for the websocket to connect
         await asyncio.sleep(1)
-        overallStartTime = datetime.now()
 
         # Get relevant attributes from config file and sim data
         taskData = activeTasks.get(taskID)
@@ -392,12 +392,10 @@ async def calculateR0(taskID: str, params: communityOverride):
         )
 
         # Run the Flusim simulation
-        await runCalculation(community, paramPath, toolboxPath)
+        r0, interval = await runCalculation(community, paramPath, toolboxPath)
+        print(f"Estimated R0: {r0} [{interval[0]}, {interval[1]}]")
 
-        print(f"""
-R0 calculation complete in {displayTime(overallStartTime)}, ready to return data
-        """)
-
+        taskData.results = {"r0": r0, "interval": interval}
         await updateStatus(taskData, "completed")
     except Exception as e:
         # TODO: Add more info to errors like this
@@ -421,12 +419,12 @@ async def r0CalculationRoute(config: communityOverride) -> dict[str, str]:
             directly as an int to ensure corrupted data is not read by the
             dashboard client.
     """
-    # TODO: Make simulationID a cookie if it helps with reload preservation
+    # TODO: Make taskID a cookie if it helps with reload preservation
     taskID = str(uuid.uuid4())
-    activeTasks[taskID] = SimData(taskID)
+    activeTasks[taskID] = TaskData(taskID)
 
     calculateTask = asyncio.create_task(calculateR0(taskID, config))
 
     activeTasks[taskID].tasks.add(calculateTask)
 
-    return {"simulationID": taskID}
+    return {"taskID": taskID}
