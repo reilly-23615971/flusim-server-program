@@ -24,8 +24,12 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-from ServerFiles.ModelSchema import communityOverride, modelGuideFile
-from ServerFiles.R0Functions import generateCalibrationConfig, runCalculation
+from ServerFiles.ModelSchema import communityOverride, modelGuideFile, overrideTemplate
+from ServerFiles.R0Functions import (
+    generateCalibrationConfig,
+    runCalculation,
+    runCalibration,
+)
 from ServerFiles.SharedResources import (
     activeTasks,
     clearFiles,
@@ -373,6 +377,126 @@ The analysis results for the simulation with the requested ID could not be found
 
 
 # R0 analysis
+
+
+# Calibration (receive r0, return beta)
+# R0 analysis
+async def calibrateR0(taskID: str, params: overrideTemplate):
+    """
+    Async function to calculate beta for a given basic reproduction number
+
+    Parameters:
+        taskID (str): The ID distinguishing this server task.
+
+        params (overrideTemplate): The parameters to calculate beta for,
+            including the target r0.
+    """
+
+    try:
+        # Wait 1 second for the websocket to connect
+        await asyncio.sleep(1)
+
+        # Get relevant attributes from config file and sim data
+        taskData = activeTasks.get(taskID)
+        if taskData is None:
+            raise ValueError("The task with the requested ID could not be found")
+        community = params.name
+        if params.description is None:
+            raise ValueError("No target r0 was provided")
+        r0 = float(params.description)
+        print(f"R0 calibration to {r0} requested, ID = {taskID}")
+
+        # Log the files that will be created over the course of the simulation
+        taskData.files = set()
+
+        # Generate config files
+        await updateStatus(taskData, "generatingToolbox")
+        toolboxPath = generateToolboxConfig(taskData, "500", "-r0Calibration")
+        await updateStatus(taskData, "generatingConfig")
+        paramPath = generateCalibrationConfig(taskData, params)
+        print(
+            f"Toolbox file located at {toolboxPath}; parameters located at {paramPath}"
+        )
+
+        # Run the Flusim simulation
+        r0, interval, beta = await runCalibration(r0, community, paramPath, toolboxPath)
+        print(
+            f"Estimated beta: {beta} (achieves {r0} with CI [{interval[0]}, {interval[1]}])"
+        )
+
+        taskData.results = {"r0": r0, "interval": interval, "beta": beta}
+        await updateStatus(taskData, "completed")
+    except Exception as e:
+        # TODO: Add more info to errors like this
+        print(f"Error while calibrating r0 {taskID}:\n{e}")
+        await updateStatus(activeTasks[taskID], "error")
+        await closeTask(taskID)
+
+
+@flusimApp.post("/r0/calibrate", status_code=202)
+async def r0CalibrationRoute(config: overrideTemplate) -> dict[str, str]:
+    """
+    Async route function to calculate beta for a given basic reproduction number
+
+    Parameters:
+        config (overrideTemplate): The r0 and parameters to calculate beta with.
+
+    Returns:
+        dict: A dictionary containing the ID assigned to this particular
+            simulation run. A dictionary is used rather than returning the ID
+            directly as an int to ensure corrupted data is not read by the
+            dashboard client.
+    """
+
+    # TODO: Make taskID a cookie if it helps with reload preservation
+    taskID = str(uuid.uuid4())
+    activeTasks[taskID] = TaskData(taskID)
+
+    calculateTask = asyncio.create_task(calibrateR0(taskID, config))
+
+    activeTasks[taskID].tasks.add(calculateTask)
+
+    return {"taskID": taskID}
+
+
+@flusimApp.get("/r0/calibrate/results/{taskID}")
+async def r0CalibrationResults(taskID: str, cleanup: BackgroundTasks):
+    """
+    Async route function to obtain the results of r0 calibration.
+
+    Parameters:
+        taskID (str): The ID distinguishing this server task.
+
+        cleanup (BackgroundTasks): An object that will have file removal
+            functions attached to it to remove simulation data once this
+            function finishes running.
+
+    Raises:
+        HTTPException: If the specified ID does not exist or has no results
+            (uses 404 status code) or is still running (raises 503 status code).
+    """
+    TaskData = activeTasks.get(taskID)
+    if TaskData is None:
+        raise HTTPException(404, "The task with the requested ID could not be found")
+
+    currentStatus = TaskData.status
+    if currentStatus != "completed":
+        raise HTTPException(503, "The requested task is still ongoing")
+
+    resultsDict = TaskData.results
+
+    if not isinstance(resultsDict, dict):
+        raise HTTPException(
+            404,
+            "The beta estimate for the task with the requested ID could not be found",
+        )
+
+    cleanup.add_task(closeTask, taskID)
+
+    return resultsDict
+
+
+# Calculation (receive beta, return r0)
 async def calculateR0(taskID: str, params: communityOverride):
     """
     Async function to calculate the basic reproduction number for a given scenario
@@ -391,7 +515,7 @@ async def calculateR0(taskID: str, params: communityOverride):
         # Get relevant attributes from config file and sim data
         taskData = activeTasks.get(taskID)
         if taskData is None:
-            raise ValueError("The simulation with the requested ID could not be found")
+            raise ValueError("The task with the requested ID could not be found")
         community = params.name
         print(f"R0 calculation requested, ID = {taskID}")
 
@@ -409,13 +533,13 @@ async def calculateR0(taskID: str, params: communityOverride):
 
         # Run the Flusim simulation
         r0, interval = await runCalculation(community, paramPath, toolboxPath)
-        print(f"Estimated R0: {r0} [{interval[0]}, {interval[1]}]")
+        print(f"Estimated R0: {r0} with CI of [{interval[0]}, {interval[1]}]")
 
         taskData.results = {"r0": r0, "interval": interval}
         await updateStatus(taskData, "completed")
     except Exception as e:
         # TODO: Add more info to errors like this
-        print(f"Error while running simulation {taskID}:\n{e}")
+        print(f"Error while calculating r0 {taskID}:\n{e}")
         await updateStatus(activeTasks[taskID], "error")
         await closeTask(taskID)
 
@@ -426,8 +550,8 @@ async def r0CalculationRoute(config: communityOverride) -> dict[str, str]:
     Async route function to calculate the basic reproduction number for a given scenario
 
     Parameters:
-        config (modelGuideFile): The parameters and other settings that
-            will define the simulation experiment.
+        config (communityOverride): The community and parameters
+            to calculate r0 with.
 
     Returns:
         dict: A dictionary containing the ID assigned to this particular
@@ -435,6 +559,7 @@ async def r0CalculationRoute(config: communityOverride) -> dict[str, str]:
             directly as an int to ensure corrupted data is not read by the
             dashboard client.
     """
+
     # TODO: Make taskID a cookie if it helps with reload preservation
     taskID = str(uuid.uuid4())
     activeTasks[taskID] = TaskData(taskID)

@@ -121,6 +121,57 @@ class StandaloneRunWithData(StandaloneRunCommand):
         return output
 
 
+class R0CalibrationWithData(StandaloneRunWithData):
+    """
+    R0Calibration command that inherits status and asynchronicity
+    """
+
+    name = "r0calibration"
+    description = "Calibrate the beta of strain 0 for a target r0"
+
+    def configure_parser_options(self, parser: ArgumentParser) -> None:
+        super().configure_parser_options(parser)
+
+        parser.add_argument(
+            "-s",
+            "--sample_size",
+            default=2000,
+            help="The size of the r0 sample to generate, which influences how accurate the calculation is",
+        )
+        parser.add_argument(
+            "-t",
+            "--target_r0",
+            type=float,
+            help="The target r0 that you want to calibrate to",
+        )
+        parser.add_argument(
+            "-m",
+            "--max_r0_diff",
+            type=float,
+            help="Stop calibrating once the calculated r0 is less than this value away from the target",
+        )
+
+    def getCommand(self) -> str:
+        return "r0calibration"
+
+    def getCommandArguments(self, args: Namespace) -> dict:
+        return {
+            "n_runs": args.sample_size,
+            "target_r0": args.target_r0,
+            "max_r0_differential": args.max_r0_diff,
+        }
+
+    def getDbPath(self, args: Namespace) -> str:
+        import tempfile
+
+        self.db = tempfile.NamedTemporaryFile(delete=False)
+        self.db.close()
+        return self.db.name
+
+    def cleanup(self) -> None:
+        os.remove(self.db.name)
+
+
 class R0CalculationWithData(StandaloneRunWithData):
     """
     R0Calculation command that inherits status and asynchronicity
