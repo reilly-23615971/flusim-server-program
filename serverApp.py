@@ -209,7 +209,7 @@ async def runModel(taskID: str, config: modelGuideFile):
         toolboxPath = generateToolboxConfig(TaskData, fileID, middleJoint)
         print(f"Toolbox file located at {toolboxPath}")
 
-        # Run the Flusim simulation
+        # Run the Flusim simulation experiment
         await runSimulation(TaskData, fileID, config, toolboxPath)
 
         # TODO: Use middle joint to determine analyses to run
@@ -328,10 +328,10 @@ async def runModelRoute(config: modelGuideFile) -> dict[str, str]:
 
     activeTasks[taskID].tasks.add(runModelTask)
 
-    return {"simulationID": taskID}
+    return {"taskID": taskID}
 
 
-@flusimApp.get("/runModel/download/{taskID}")
+@flusimApp.get("/runModel/results/{taskID}")
 async def downloadSimulationResults(taskID: str, cleanup: BackgroundTasks):
     """
     Async route function to obtain the results of a simulation experiment.
