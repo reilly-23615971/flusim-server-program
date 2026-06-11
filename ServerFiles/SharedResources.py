@@ -141,7 +141,7 @@ def clearFiles(files: set[str]):
     Parameters:
         files (set of str): A list of paths to files that must be removed.
     """
-    # TODO: Add short delay if necessary for big file downloads
+    # TODO: See if tempfile can replace this workaround
     # TODO: Make sure files are deleted some time after a websocket breaks
     print("[clearFiles] Deleting the following files for cleanup purposes:")
     for f in files:
@@ -169,7 +169,9 @@ async def updateStatus(sim: TaskData, state: str):
     # Broadcast to connected WebSockets
     message = {"status": state}
     if not sim.websockets:
-        sharedLog.warning(f"Task {sim.taskID} had no websockets it could update to {message}\n")
+        sharedLog.warning(
+            f"Task {sim.taskID} had no websockets it could update to {message}\n"
+        )
     for websocket in sim.websockets:
         try:
             await websocket.send_json(message)

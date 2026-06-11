@@ -260,6 +260,7 @@ def runScenario(
             raise AssertionError("Failed to capture scenario process output")
         # TODO: Is list the best container for this output?
         outputLines = []
+        # TODO: See if captured output can make dashboard progress bars more dynamic
         for line in simProcess.stdout:
             print(line, end="")
             outputLines.append(line)
