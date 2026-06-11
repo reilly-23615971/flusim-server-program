@@ -133,7 +133,7 @@ async def runCalibration(
         config=toolboxConfig,
     )
     if commandOutput is not None:
-        results = commandOutput.splitlines()[-2].decode()
+        results = commandOutput[-2]
         resultMatches = re.search(
             r"An R0 of (.*?) \(95% CI \[(.*?), (.*?)\]\) calculated for a beta of (.*?)",
             results,
@@ -190,7 +190,7 @@ async def runCalculation(communityName: str, configPath: str, toolboxPath: str):
         config=toolboxConfig,
     )
     if commandOutput is not None:
-        results = commandOutput.splitlines()[-1].decode()
+        results = commandOutput[-1]
         resultMatches = re.search(
             r"R0 calculated to be (.*?) with 95% confidence interval of \[(.*?), (.*?)\]",
             results,

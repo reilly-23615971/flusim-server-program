@@ -82,7 +82,7 @@ class StandaloneRunWithData(StandaloneRunCommand):
 
     async def run_command_async(
         self, args: Namespace, config: ToolboxConfiguration
-    ) -> Optional[bytes]:
+    ) -> Optional[list]:
         import json
 
         from commands.Run.ScenarioRunner import ScenarioParameters, ScenarioRunner
@@ -251,11 +251,18 @@ def runScenario(
     overrideLog.info(f"Running {scenario.command} {scenario.scenarioDb}")
     overrideLog.debug(f"With command-line invocation: {command}")
     simProcess = subprocess.Popen(
-        command, stdout=subprocess.PIPE if captureOutput else None
+        command, stdout=subprocess.PIPE if captureOutput else None, text=True
     )
     if sim is not None:
         sim.process = simProcess
+    if captureOutput is not None:
+        if simProcess.stdout is None:
+            raise AssertionError("Failed to capture scenario process output")
+        # TODO: Is list the best container for this output?
+        outputLines = []
+        for line in simProcess.stdout:
+            print(line, end="")
+            outputLines.append(line)
     simProcess.wait()
     if captureOutput:
-        output = simProcess.stdout.read() if simProcess.stdout is not None else None
-        return output
+        return outputLines
