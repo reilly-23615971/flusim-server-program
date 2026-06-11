@@ -135,7 +135,7 @@ async def runCalibration(
     if commandOutput is not None:
         results = commandOutput[-2]
         resultMatches = re.search(
-            r"An R0 of (.*?) \(95% CI \[(.*?), (.*?)\]\) calculated for a beta of (.*?)",
+            r"A R0 of (.*?) \(95% CI \[(.*?), (.*?)\]\) calculated for a beta of (.*?)$",
             results,
         )
         if resultMatches:

@@ -154,7 +154,7 @@ def clearFiles(files: set[str]):
             print(" (not found)")
 
 
-async def updateStatus(sim: TaskData, state: str):
+async def updateStatus(sim: TaskData, state: str, extra: dict = {}):
     """
     Simple async function to update the returned status of a server operation.
 
@@ -162,12 +162,14 @@ async def updateStatus(sim: TaskData, state: str):
         sim (TaskData): The object containing the data used for this simulation.
 
         state (str): The state to set the task to.
+
+        extra (dict): Additional JSON attributes to include in the status message.
     """
     # TODO: If other tasks don't use TaskData modify the parameters here
     sim.status = state
 
     # Broadcast to connected WebSockets
-    message = {"status": state}
+    message = {"status": state} | extra
     if not sim.websockets:
         sharedLog.warning(
             f"Task {sim.taskID} had no websockets it could update to {message}\n"
