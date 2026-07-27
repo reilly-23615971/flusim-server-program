@@ -304,7 +304,8 @@ async def runModel(taskID: str, config: modelGuideFile):
         await updateStatus(activeTasks[taskID], "error")
         await closeTask(taskID)
 
-
+# TODO: runModelTask might sometimes become its own child and cause
+# recursion errors when cancelling it? Investigate
 @flusimApp.post("/runModel", status_code=202)
 async def runModelRoute(config: modelGuideFile) -> dict[str, str]:
     """

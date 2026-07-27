@@ -123,6 +123,8 @@ class TaskData:
 
         for task in self.tasks:
             # Naming tasks for logging would require Python 3.12
+            # We'll at least print them for debugging
+            sharedLog.info(f"Cancelling task {task}...")
             task.cancel()
 
         # Wait for all tasks to finish cancelling
