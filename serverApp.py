@@ -228,7 +228,6 @@ async def runModel(taskID: str, config: modelGuideFile):
             TaskData,
             fileID,
             community,
-            middleJoint,
             cumulative=True,
             toolboxPath=toolboxPath,
         )
@@ -240,7 +239,6 @@ async def runModel(taskID: str, config: modelGuideFile):
             TaskData,
             fileID,
             community,
-            middleJoint,
             cumulative=False,
             toolboxPath=toolboxPath,
         )
@@ -277,7 +275,6 @@ async def runModel(taskID: str, config: modelGuideFile):
                 TaskData,
                 fileID,
                 community,
-                middleJoint,
                 toolboxPath=toolboxPath,
             )
 
