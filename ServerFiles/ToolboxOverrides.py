@@ -250,16 +250,17 @@ def runScenario(
     command = scenario.getCommand()
     overrideLog.info(f"Running {scenario.command} {scenario.scenarioDb}")
     overrideLog.debug(f"With command-line invocation: {command}")
+    overrideLog.debug(f"Output is {'' if captureOutput else 'not '}being captured")
     simProcess = subprocess.Popen(
         command, stdout=subprocess.PIPE if captureOutput else None, text=True
     )
     if sim is not None:
         sim.process = simProcess
-    if captureOutput is not None:
+    # TODO: Is list the best container for this output?
+    outputLines = []
+    if captureOutput:
         if simProcess.stdout is None:
             raise AssertionError("Failed to capture scenario process output")
-        # TODO: Is list the best container for this output?
-        outputLines = []
         # TODO: See if captured output can make dashboard progress bars more dynamic
         for line in simProcess.stdout:
             print(line, end="")
