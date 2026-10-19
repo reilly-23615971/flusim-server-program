@@ -5,7 +5,7 @@
 # Imports
 import logging
 from operator import attrgetter
-from typing import Annotated, Any, Literal, Optional, TypeAlias, cast
+from typing import Annotated, Any, Literal, Optional, cast
 
 from annotated_types import Ge, Le, Len
 from pydantic import (
@@ -22,7 +22,7 @@ from typing_extensions import Self
 validationLog = logging.getLogger(__name__)
 
 # Type Definitions
-AgeGroup: TypeAlias = Literal[
+type AgeGroup = Literal[
     "young_infant",  # 0-6 months
     "infant",  # 7-24 months (0.5-2 years)
     "young_child",  # 3-5 years
@@ -34,7 +34,7 @@ AgeGroup: TypeAlias = Literal[
     "senior",  # 65-79 years
     "older_senior",  # 80+ years
 ]
-TriggerCondition: TypeAlias = Literal[
+type TriggerCondition = Literal[
     "none",
     "timed",
     "per_school_cases",
@@ -42,13 +42,13 @@ TriggerCondition: TypeAlias = Literal[
     "community_rate",
     "per_primary_high_school_cases",
 ]
-BoosterType: TypeAlias = Literal["primary", "booster"]
-Kappa: TypeAlias = Annotated[float, Ge(0)]
+type BoosterType = Literal["primary", "booster"]
+type Kappa = Annotated[float, Ge(0)]
 # The following 3 types are structurally identical, but are
 # distinguished for readability and documentation purposes
-Proportion: TypeAlias = Annotated[float, Ge(0), Le(1)]
-Probability: TypeAlias = Annotated[float, Ge(0), Le(1)]
-EfficacyValue: TypeAlias = Annotated[float, Ge(0), Le(1)]
+type Proportion = Annotated[float, Ge(0), Le(1)]
+type Probability = Annotated[float, Ge(0), Le(1)]
+type EfficacyValue = Annotated[float, Ge(0), Le(1)]
 
 # Vaccination priority is defined in advance for type checking purposes
 vaccinePriorityDefault: list[
@@ -62,7 +62,8 @@ parameterCategories = {
     "Scenario_Strain": ["StrainId"],
     "Scenario_VaccineCoverage": ["Age"],
     "Scenario_VaccineDose": ["DoseType"],
-    "Scenario_VaccineDoseEfficacy": ["DoseType", "Age"],
+    # "Scenario_VaccineDoseEfficacy": ["DoseType", "Age"],
+    "Scenario_VaccineDoseEfficacy": ["DoseType", "StrainId", "Age"],
 }
 parameterGetters = {
     "Scenario_CrossImmunity": attrgetter("FromStrainId", "ToStrainId"),
@@ -70,7 +71,8 @@ parameterGetters = {
     "Scenario_Strain": attrgetter("StrainId"),
     "Scenario_VaccineCoverage": attrgetter("Age"),
     "Scenario_VaccineDose": attrgetter("DoseType"),
-    "Scenario_VaccineDoseEfficacy": attrgetter("DoseType", "Age"),
+    # "Scenario_VaccineDoseEfficacy": attrgetter("DoseType", "Age"),
+    "Scenario_VaccineDoseEfficacy": attrgetter("DoseType", "StrainId", "Age"),
 }
 
 
@@ -498,7 +500,7 @@ will begin to lose their immunity to the pathogen.
     )
     infection_waning_rate_per_cycle: Optional[float] = Field(
         title="Infection Waning Rate Per Cycle",
-        default=0.005,
+        default=0.0,
         ge=0.0,
         description="""
 The proportion of immune individuals who will lose their immunity to the
@@ -1413,6 +1415,16 @@ class vaccineEfficacy(BaseModel):
         title="Dose Type",
         description="The type of vaccine dose these parameters apply to.",
     )
+    #'''
+    StrainId: Optional[int] = Field(
+        title="Strain ID",
+        default=None,
+        description="""
+The ID of the infection strain these parameters apply to. If None, the
+parameters apply to all infection strains.
+        """,
+    )
+    #'''
     Age: Optional[AgeGroup] = Field(
         title="Age",
         default=None,

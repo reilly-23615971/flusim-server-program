@@ -1,10 +1,9 @@
 name: flusim-server
 channels:
   - defaults
-  - conda-forge
 dependencies:
-  - python=3.11
-  - pandas=1.5.3
+  - python=3.13
+  - pandas
   - pandas-stubs
   - fastapi
   - watchdog

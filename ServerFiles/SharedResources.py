@@ -10,6 +10,7 @@ import sys
 from asyncio import Task
 from datetime import datetime
 from subprocess import Popen
+from typing import Any
 
 from fastapi import WebSocket
 
@@ -32,13 +33,13 @@ sys.path.append(
 )
 
 
-class SimData:
+class TaskData:
     """
-    Class for information regarding a simulation
+    Class for information regarding a server task
     """
 
-    def __init__(self, simulationID: str):
-        self._simulationID = simulationID
+    def __init__(self, taskID):
+        self._taskID = taskID
         self._websockets = []
         self._tasks = set()
         self._process = None
@@ -47,13 +48,14 @@ class SimData:
         self._results = None
 
     @property
-    def simulationID(self):
+    def taskID(self):
         """ID associated with this simulation"""
-        return self._simulationID
+        return self._taskID
 
     @property
     def websockets(self):
         """Websockets tied to the client that requested this simulation"""
+        # TODO: Does this need to be a list? 1 websocket per sim is normal
         return self._websockets
 
     @websockets.setter
@@ -62,6 +64,7 @@ class SimData:
 
     @websockets.deleter
     def websockets(self):
+        # TODO: Should websockets be closed in this case?
         del self._websockets
 
     @property
@@ -108,11 +111,11 @@ class SimData:
 
     @property
     def results(self):
-        """Path to file containing analysed simulation results"""
+        """Either the results to be returned, or the path to the returned file"""
         return self._results
 
     @results.setter
-    def results(self, value: str):
+    def results(self, value: Any):
         self._results = value
 
     async def stopTasks(self):
@@ -120,6 +123,8 @@ class SimData:
 
         for task in self.tasks:
             # Naming tasks for logging would require Python 3.12
+            # We'll at least print them for debugging
+            sharedLog.info(f"Cancelling task {task}...")
             task.cancel()
 
         # Wait for all tasks to finish cancelling
@@ -127,8 +132,8 @@ class SimData:
             await asyncio.gather(*self.tasks, return_exceptions=True)
 
 
-# Dict to store active simulations
-activeSimulations: dict[str, SimData] = dict()
+# Dict to store active tasks
+activeTasks: dict[str, TaskData] = dict()
 
 
 def clearFiles(files: set[str]):
@@ -138,7 +143,7 @@ def clearFiles(files: set[str]):
     Parameters:
         files (set of str): A list of paths to files that must be removed.
     """
-    # TODO: Add short delay if necessary for big file downloads
+    # TODO: See if tempfile can replace this workaround
     # TODO: Make sure files are deleted some time after a websocket breaks
     print("[clearFiles] Deleting the following files for cleanup purposes:")
     for f in files:
@@ -151,27 +156,33 @@ def clearFiles(files: set[str]):
             print(" (not found)")
 
 
-async def updateStatus(sim: SimData, state: str):
+async def updateStatus(sim: TaskData, state: str, extra: dict = {}):
     """
     Simple async function to update the returned status of a server operation.
 
     Parameters:
-        sim (SimData): The object containing the data used for this simulation.
+        sim (TaskData): The object containing the data used for this simulation.
 
         state (str): The state to set the task to.
+
+        extra (dict): Additional JSON attributes to include in the status message.
     """
-    # TODO: If other tasks don't use SimData modify the parameters here
+    # TODO: If other tasks don't use TaskData modify the parameters here
     sim.status = state
 
     # Broadcast to connected WebSockets
-    message = {"status": state}
+    message = {"status": state} | extra
+    if not sim.websockets:
+        sharedLog.warning(
+            f"Task {sim.taskID} had no websockets it could update to {message}\n"
+        )
     for websocket in sim.websockets:
         try:
             await websocket.send_json(message)
-            sharedLog.info(f"Status for {sim.simulationID} updated to {message}\n")
+            sharedLog.info(f"Status for {sim.taskID} updated to {message}\n")
         except Exception as e:
             sharedLog.error(f"""
-Status for {sim.simulationID} wasn't updated to {message} due to the following error:
+Status for {sim.taskID} wasn't updated to {message} due to the following error:
 {e}\n
             """)
 
