@@ -3,8 +3,8 @@
 */__pycache__/*
 __pycache__/*
 *Logs/*
-serverAppLogs.txt
+server-app-logs.txt
 smrg_flusim/*
-tempFiles/*
+temp-files/*
 oldServerApp.py
 src/*

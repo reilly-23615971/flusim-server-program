@@ -8,7 +8,7 @@ import logging
 from asyncio import Task
 from dataclasses import dataclass
 from subprocess import Popen
-from typing import Any, Literal, Sequence, get_args
+from typing import Any, Literal, Optional, Sequence, get_args
 
 from fastapi import WebSocket
 
@@ -194,23 +194,23 @@ class TaskData:
     Class for information regarding a server task
     """
 
-    def __init__(self, taskID):
-        self._taskID = taskID
-        self._websockets = []
-        self._tasks = set()
-        self._process = None
-        self._status = "start"
-        self._files = set()
+    def __init__(self, task_id):
+        self._task_id: str = task_id
+        self._websockets: list[WebSocket] = []
+        self._tasks: set[Task] = set()
+        self._process: Optional[Popen] = None
+        self._status: str = "start"
+        self._files: set[str] = set()
         self._results = None
 
     @property
-    def taskID(self):
-        """ID associated with this simulation"""
-        return self._taskID
+    def task_id(self):
+        "ID associated with this simulation"
+        return self._task_id
 
     @property
     def websockets(self):
-        """Websockets tied to the client that requested this simulation"""
+        "Websockets tied to the client that requested this simulation"
         # TODO: Does this need to be a list? 1 websocket per sim is normal
         return self._websockets
 
@@ -225,7 +225,7 @@ class TaskData:
 
     @property
     def tasks(self):
-        """Set of asyncio tasks that relate to this simulation"""
+        "Set of asyncio tasks that relate to this simulation"
         return self._tasks
 
     @tasks.setter
@@ -234,7 +234,7 @@ class TaskData:
 
     @property
     def process(self):
-        """C++ subprocess currently running for this simulation"""
+        "C++ subprocess currently running for this simulation"
         return self._process
 
     @process.setter
@@ -249,7 +249,7 @@ class TaskData:
 
     @property
     def status(self):
-        """String indicating the simulation's current progress"""
+        "String indicating the simulation's current progress"
         return self._status
 
     @status.setter
@@ -258,7 +258,7 @@ class TaskData:
 
     @property
     def files(self):
-        """Set of file paths for files that will be created for this simulation"""
+        "Set of file paths for files that will be created for this simulation"
         return self._files
 
     @files.setter
@@ -267,15 +267,15 @@ class TaskData:
 
     @property
     def results(self):
-        """Either the results to be returned, or the path to the returned file"""
+        "Either the results to be returned, or the path to the returned file"
         return self._results
 
     @results.setter
     def results(self, value: Any):
         self._results = value
 
-    async def stopTasks(self):
-        """Stop any currently running tasks for this simulation"""
+    async def stop_tasks(self):
+        "Stop any currently running tasks for this simulation"
 
         for task in self.tasks:
             # Naming tasks for logging would require Python 3.12

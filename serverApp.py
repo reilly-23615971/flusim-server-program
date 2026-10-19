@@ -26,23 +26,23 @@ from fastapi.responses import FileResponse
 
 from ServerFiles.ModelSchema import CommunityOverride, ModelGuideFile, OverrideTemplate
 from ServerFiles.R0Functions import (
-    generateCalibrationConfig,
-    runCalculation,
-    runCalibration,
+    generate_calibration_config,
+    run_calculation,
+    run_calibration,
 )
 from ServerFiles.SharedResources import (
-    clearFiles,
     DELETE_GENERATED_FILES,
     EXECUTABLE_LOCATION,
     TOOLBOX_LOCATION,
-    updateStatus,
+    clear_files,
+    update_status,
 )
 from ServerFiles.SimulationFunctions import (
     asir,
-    displayTime,
+    display_time,
     epidemic,
-    generateToolboxConfig,
-    runSimulation,
+    generate_toolbox_config,
+    run_simulation,
 )
 from ServerFiles.Types import COMMUNITY_NAMES, TaskData, active_tasks
 
@@ -54,18 +54,18 @@ async def lifespan(app: FastAPI):
     """
     yield
     # Cancel any remaining processes and delete remaining files
-    tasksToClose = list(active_tasks.keys())
-    for task in tasksToClose:
+    tasks_to_close = list(active_tasks.keys())
+    for task in tasks_to_close:
         # TODO: Is sending one last message before sockets disconnect possible?
-        # await updateStatus(active_tasks[task], "shutdown")
-        await closeTask(task)
+        # await update_status(active_tasks[task], "shutdown")
+        await close_task(task)
 
 
 # Logging config
 # TODO: Try to fix the logging loop again without --no-reload
-os.makedirs("tempFiles", exist_ok=True)
+os.makedirs("temp-files", exist_ok=True)
 logging.basicConfig(
-    filename="tempFiles/serverAppLogs.txt",
+    filename="temp-files/server-app-logs.txt",
     filemode="a",
     format="%(asctime)s,%(msecs)03d %(name)s %(levelname)s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
@@ -75,23 +75,23 @@ logging.basicConfig(
 # Throw error if Flusim files aren't present
 if not os.path.isfile(TOOLBOX_LOCATION):
     raise FileNotFoundError(f"""
-        Flusim toolbox files not found. Ensure that this application is present
-        in the same directory as the Flusim simulation files, such that the
-        toolbox program is located at "{TOOLBOX_LOCATION}".
+Flusim toolbox files not found. Ensure that this application is present in the
+same directory as the Flusim simulation files, such that the toolbox program is
+located at "{TOOLBOX_LOCATION}".
     """)
 if not os.path.isfile(EXECUTABLE_LOCATION):
     raise FileNotFoundError(f"""
-        Flusim simulation engine executable not found. Ensure that the executable
-        has been built (see the Flusim documentation for more info) and is located
-        at "{EXECUTABLE_LOCATION}".
+Flusim simulation engine executable not found. Ensure that the executable has
+been built (see the Flusim documentation for more info) and is located at
+"{EXECUTABLE_LOCATION}".
     """)
 
 
 # Define main Flusim app
-flusimApp = FastAPI(lifespan=lifespan)
+flusim_server_app = FastAPI(lifespan=lifespan)
 
 # CORS Middleware for ensuring only the web application can make requests
-flusimApp.add_middleware(
+flusim_server_app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # replace with production URLs
     allow_credentials=True,
@@ -101,90 +101,92 @@ flusimApp.add_middleware(
 
 
 # Functions and routes for multiple tasks
-async def closeTask(taskID: str):
+async def close_task(task_id: str):
     """
     Async wrapper to ensure TaskData objects are properly cleaned up
     and tasks are fully cancelled before files are deleted.
 
     Parameters:
-        taskID (str): The ID distinguishing this server task.
+        task_id (str): The ID distinguishing this server task.
     """
-    TaskData = active_tasks.get(taskID)
-    if TaskData is None:
+    task_data = active_tasks.get(task_id)
+    if task_data is None:
         return
 
     # Cancel tasks, delete files and remove simulation data
-    if TaskData.process is not None:
-        TaskData.process.terminate()
-    await TaskData.stopTasks()
+    if task_data.process is not None:
+        task_data.process.terminate()
+    await task_data.stop_tasks()
     if DELETE_GENERATED_FILES:
-        clearFiles(TaskData.files)
-    del active_tasks[taskID]
-    print(f"[closeTask] Finished closing task with ID {taskID}\n\n")
+        clear_files(task_data.files)
+    del active_tasks[task_id]
+    print(f"[close_task] Finished closing task with ID {task_id}\n\n")
 
 
-@flusimApp.websocket("/status/{taskID}")
-async def statusWebSocket(websocket: WebSocket, taskID: str):
+@flusim_server_app.websocket("/status/{task_id}")
+async def status_websocket(websocket: WebSocket, task_id: str):
     """
     Websocket route to deliver task status updates live
 
     Parameters:
         websocket (WebSocket): The websocket to send updates to.
 
-        taskID (str): The ID distinguishing this server task.
+        task_id (str): The ID distinguishing this server task.
 
     Raises:
-        WebSocketException: If the specified ID does not exist (uses 1008 status code).
+        WebSocketException: If the specified ID does not exist (uses
+            1008 status code).
     """
     await websocket.accept()
-    TaskData = active_tasks.get(taskID)
-    if TaskData is None:
+    task_data = active_tasks.get(task_id)
+    if task_data is None:
         raise WebSocketException(
             1008, "The task with the requested ID could not be found"
         )
 
-    TaskData.websockets.append(websocket)
+    task_data.websockets.append(websocket)
 
     try:
         # Send current status
-        await websocket.send_json({"status": TaskData.status})
+        await websocket.send_json({"status": task_data.status})
 
         # Keep connection open to send updates
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
-        TaskData.websockets.remove(websocket)
+        task_data.websockets.remove(websocket)
 
 
-@flusimApp.delete("/cancel/{taskID}", status_code=204)
-async def stopTaskRoute(taskID: str, cleanup: BackgroundTasks):
+@flusim_server_app.delete("/cancel/{task_id}", status_code=204)
+async def stop_task_route(task_id: str, cleanup: BackgroundTasks):
     """
     Async route function to stop a running task.
 
     Parameters:
-        taskID (str): The ID distinguishing this server task.
+        task_id (str): The ID distinguishing this server task.
 
         cleanup (BackgroundTasks): An object that will have file removal
             functions attached to it to remove excess files once this
             function finishes running.
 
     Raises:
-        HTTPException: If the specified ID does not exist (uses 404 status code).
+        HTTPException: If the specified ID does not exist (uses 404 status
+            code).
     """
-    TaskData = active_tasks.get(taskID)
-    if TaskData is None:
+    task_data = active_tasks.get(task_id)
+    if task_data is None:
         raise HTTPException(404, "The task with the requested ID could not be found")
-    cleanup.add_task(closeTask, taskID)
+    cleanup.add_task(close_task, task_id)
 
 
 # Running simulation experiments
-async def runModel(taskID: str, config: ModelGuideFile):
+async def run_model(task_id: str, config: ModelGuideFile):
     """
     Async function to run a simulation experiment based on parameters
     from the dashboard, then zip the analysed statistics.
 
     Parameters:
-        taskID (str): The ID distinguishing this simulation task.
+        task_id (str): The ID distinguishing this simulation task.
 
         config (ModelGuideFile): The parameters and other settings that
             will define the simulation experiment.
@@ -192,28 +194,28 @@ async def runModel(taskID: str, config: ModelGuideFile):
     try:
         # Wait 1 second for the websocket to connect
         await asyncio.sleep(1)
-        overallStartTime = datetime.now()
+        overall_start_time = datetime.now()
 
         # Get relevant attributes from config file and sim data
-        TaskData = active_tasks.get(taskID)
-        if TaskData is None:
+        task_data = active_tasks.get(task_id)
+        if task_data is None:
             raise ValueError("The simulation with the requested ID could not be found")
-        fileID = config.description
+        file_id = config.description
         community = config.community_used[0]
-        middleJoint = config.middle_joint
-        print(f"Simulation received; name = {config.name}, ID = {taskID}")
+        middle_joint = config.middle_joint
+        print(f"Simulation received; name = {config.name}, ID = {task_id}")
 
         # Log the files that will be created over the course of the simulation
-        TaskData.files = set()
-        analysisFiles = []
+        task_data.files = set()
+        analysis_files = []
 
         # Generate toolbox config file
-        await updateStatus(TaskData, "generatingConfig")
-        toolboxPath = generateToolboxConfig(TaskData, fileID, middleJoint)
-        print(f"Toolbox file located at {toolboxPath}")
+        await update_status(task_data, "generating_config")
+        toolbox_path = generate_toolbox_config(task_data, file_id, middle_joint)
+        print(f"Toolbox file located at {toolbox_path}")
 
         # Run the Flusim simulation experiment
-        await runSimulation(TaskData, fileID, config, toolboxPath)
+        await run_simulation(task_data, file_id, config, toolbox_path)
 
         # TODO: Use middle joint to determine analyses to run
         # (or find a way to send the data forms to the server directly)
@@ -221,93 +223,93 @@ async def runModel(taskID: str, config: ModelGuideFile):
         # for now, just get the standard analyses the dashboard uses
 
         # Daily infection epidemic curve
-        await updateStatus(TaskData, "toolboxAnalysis0")
-        analysisFiles += await asyncio.to_thread(
+        await update_status(task_data, "toolbox_analysis0")
+        analysis_files += await asyncio.to_thread(
             epidemic,
-            TaskData,
-            fileID,
+            task_data,
+            file_id,
             community,
             cumulative=True,
-            toolboxPath=toolboxPath,
+            toolbox_path=toolbox_path,
         )
 
         # Cumulative infection epidemic curve
-        await updateStatus(TaskData, "toolboxAnalysis1")
-        analysisFiles += await asyncio.to_thread(
+        await update_status(task_data, "toolbox_analysis1")
+        analysis_files += await asyncio.to_thread(
             epidemic,
-            TaskData,
-            fileID,
+            task_data,
+            file_id,
             community,
             cumulative=False,
-            toolboxPath=toolboxPath,
+            toolbox_path=toolbox_path,
         )
 
         # Age-separated infection rates
-        await updateStatus(TaskData, "toolboxAnalysis2")
-        analysisFiles += await asyncio.to_thread(
+        await update_status(task_data, "toolbox_analysis2")
+        analysis_files += await asyncio.to_thread(
             asir,
-            TaskData,
-            fileID,
+            task_data,
+            file_id,
             community,
-            middleJoint,
-            toolboxPath=toolboxPath,
+            middle_joint,
+            toolbox_path=toolbox_path,
         )
 
         # Vaccinated age-separated infection rates
-        if middleJoint and "+vaccine" in middleJoint:
-            await updateStatus(TaskData, "toolboxAnalysis3")
-            analysisFiles += await asyncio.to_thread(
+        if middle_joint and "+vaccine" in middle_joint:
+            await update_status(task_data, "toolbox_analysis3")
+            analysis_files += await asyncio.to_thread(
                 asir,
-                TaskData,
-                fileID,
+                task_data,
+                file_id,
                 community,
-                middleJoint,
-                onlyVaccinated=True,
-                toolboxPath=toolboxPath,
+                middle_joint,
+                vaccinated_only=True,
+                toolbox_path=toolbox_path,
             )
 
         # If all else fails and no analyses were specified, run epidemic
-        if not analysisFiles:
+        if not analysis_files:
             print("No analyses specified; defaulting to epidemic")
-            analysisFiles += await asyncio.to_thread(
+            analysis_files += await asyncio.to_thread(
                 epidemic,
-                TaskData,
-                fileID,
+                task_data,
+                file_id,
                 community,
-                toolboxPath=toolboxPath,
+                toolbox_path=toolbox_path,
             )
 
         print("\nAnalysis files:")
-        for file in analysisFiles:
+        for file in analysis_files:
             print("   ", file)
 
         # Zip together the analysis files
-        await updateStatus(TaskData, "zippingAnalysis")
-        zipPath = f"tempFiles/analysis_files_{fileID}_.zip"
-        TaskData.files.add(zipPath)
-        with zipfile.ZipFile(zipPath, mode="w") as analysis:
-            for file in analysisFiles:
+        await update_status(task_data, "zipping_analysis")
+        zip_path = f"temp-files/analysis_files_{file_id}_.zip"
+        task_data.files.add(zip_path)
+        with zipfile.ZipFile(zip_path, mode="w") as analysis:
+            for file in analysis_files:
                 analysis.write(file)
 
-        TaskData.results = zipPath
+        task_data.results = zip_path
 
         print(
-            f"\nSimulation request for session {fileID} complete in "
-            f"{displayTime(overallStartTime)}, ready to return data\n"
+            f"\nSimulation request for session {file_id} complete in "
+            f"{display_time(overall_start_time)}, ready to return data\n"
         )
 
-        await updateStatus(TaskData, "completed")
+        await update_status(task_data, "completed")
     except Exception as e:
         # TODO: Add more info to errors like this
-        print(f"Error while running simulation {taskID}:\n{e}")
-        await updateStatus(active_tasks[taskID], "error")
-        await closeTask(taskID)
+        print(f"Error while running simulation {task_id}:\n{e}")
+        await update_status(active_tasks[task_id], "error")
+        await close_task(task_id)
 
 
-# TODO: runModelTask might sometimes become its own child and cause
+# TODO: run_model_task might sometimes become its own child and cause
 # recursion errors when cancelling it? Investigate
-@flusimApp.post("/runModel", status_code=202)
-async def runModelRoute(config: ModelGuideFile) -> dict[str, str]:
+@flusim_server_app.post("/run_model", status_code=202)
+async def run_model_route(config: ModelGuideFile) -> dict[str, str]:
     """
     Async route function to begin a simulation experiment and give the
     dashboard an ID to poll for status updates.
@@ -322,24 +324,24 @@ async def runModelRoute(config: ModelGuideFile) -> dict[str, str]:
             directly as an int to ensure corrupted data is not read by the
             dashboard client.
     """
-    # TODO: Make taskID a cookie if it helps with reload preservation
-    taskID = str(uuid.uuid4())
-    active_tasks[taskID] = TaskData(taskID)
+    # TODO: Make task_id a cookie if it helps with reload preservation
+    task_id = str(uuid.uuid4())
+    active_tasks[task_id] = TaskData(task_id)
 
-    runModelTask = asyncio.create_task(runModel(taskID, config))
+    run_model_task = asyncio.create_task(run_model(task_id, config))
 
-    active_tasks[taskID].tasks.add(runModelTask)
+    active_tasks[task_id].tasks.add(run_model_task)
 
-    return {"taskID": taskID}
+    return {"task_id": task_id}
 
 
-@flusimApp.get("/runModel/results/{taskID}")
-async def downloadSimulationResults(taskID: str, cleanup: BackgroundTasks):
+@flusim_server_app.get("/run_model/results/{task_id}")
+async def download_simulation_results(task_id: str, cleanup: BackgroundTasks):
     """
     Async route function to obtain the results of a simulation experiment.
 
     Parameters:
-        taskID (str): The ID distinguishing this simulation task.
+        task_id (str): The ID distinguishing this simulation task.
 
         cleanup (BackgroundTasks): An object that will have file removal
             functions attached to it to remove simulation data once this
@@ -349,19 +351,19 @@ async def downloadSimulationResults(taskID: str, cleanup: BackgroundTasks):
         HTTPException: If the specified ID does not exist or has no results
             (uses 404 status code) or is still running (raises 503 status code).
     """
-    TaskData = active_tasks.get(taskID)
-    if TaskData is None:
+    task_data = active_tasks.get(task_id)
+    if task_data is None:
         raise HTTPException(
             404, "The simulation with the requested ID could not be found"
         )
 
-    currentStatus = TaskData.status
-    if currentStatus != "completed":
+    current_status = task_data.status
+    if current_status != "completed":
         raise HTTPException(503, "The requested simulation is still ongoing")
 
-    filePath = TaskData.results
+    file_path = task_data.results
 
-    if not filePath or not os.path.exists(filePath):
+    if not file_path or not os.path.exists(file_path):
         raise HTTPException(
             404,
             """
@@ -369,9 +371,9 @@ The analysis results for the simulation with the requested ID could not be found
             """,
         )
 
-    cleanup.add_task(closeTask, taskID)
+    cleanup.add_task(close_task, task_id)
 
-    return FileResponse(filePath, filename=os.path.basename(filePath))
+    return FileResponse(file_path, filename=os.path.basename(file_path))
 
 
 # R0 analysis
@@ -379,12 +381,12 @@ The analysis results for the simulation with the requested ID could not be found
 
 # Calibration (receive r0, return beta)
 # R0 analysis
-async def calibrateR0(taskID: str, params: OverrideTemplate):
+async def calibrate_r0(task_id: str, params: OverrideTemplate):
     """
     Async function to calculate beta for a given basic reproduction number
 
     Parameters:
-        taskID (str): The ID distinguishing this server task.
+        task_id (str): The ID distinguishing this server task.
 
         params (OverrideTemplate): The parameters to calculate beta for,
             including the target r0.
@@ -395,45 +397,49 @@ async def calibrateR0(taskID: str, params: OverrideTemplate):
         await asyncio.sleep(1)
 
         # Get relevant attributes from config file and sim data
-        taskData = active_tasks.get(taskID)
-        if taskData is None:
+        task_data = active_tasks.get(task_id)
+        if task_data is None:
             raise ValueError("The task with the requested ID could not be found")
         community = params.name
         assert community in COMMUNITY_NAMES
         if params.description is None:
             raise ValueError("No target r0 was provided")
         r0 = float(params.description)
-        print(f"R0 calibration to {r0} requested, ID = {taskID}")
+        print(f"R0 calibration to {r0} requested, ID = {task_id}")
 
         # Log the files that will be created over the course of the simulation
-        taskData.files = set()
+        task_data.files = set()
 
         # Generate config files
-        await updateStatus(taskData, "generatingToolbox")
-        toolboxPath = generateToolboxConfig(taskData, "500", "-r0Calibration")
-        await updateStatus(taskData, "generatingConfig")
-        paramPath = generateCalibrationConfig(taskData, params)
+        await update_status(task_data, "generatingToolbox")
+        toolbox_path = generate_toolbox_config(task_data, "500", "-r0Calibration")
+        await update_status(task_data, "generating_config")
+        parameter_path = generate_calibration_config(task_data, params)
         print(
-            f"Toolbox file located at {toolboxPath}; parameters located at {paramPath}"
+            f"Toolbox file located at {toolbox_path}; "
+            f"parameters located at {parameter_path}"
         )
 
         # Run the Flusim simulation
-        r0, interval, beta = await runCalibration(r0, community, paramPath, toolboxPath)
+        r0, interval, beta = await run_calibration(
+            r0, community, parameter_path, toolbox_path
+        )
         print(
-            f"Estimated beta: {beta} (achieves {r0} with CI [{interval[0]}, {interval[1]}])"
+            f"Estimated beta: {beta} (achieves {r0} "
+            f"with CI [{interval[0]}, {interval[1]}])"
         )
 
-        taskData.results = {"r0": r0, "interval": interval, "beta": beta}
-        await updateStatus(taskData, "completed")
+        task_data.results = {"r0": r0, "interval": interval, "beta": beta}
+        await update_status(task_data, "completed")
     except Exception as e:
         # TODO: Add more info to errors like this
-        print(f"Error while calibrating r0 {taskID}:\n{e}")
-        await updateStatus(active_tasks[taskID], "error")
-        await closeTask(taskID)
+        print(f"Error while calibrating r0 {task_id}:\n{e}")
+        await update_status(active_tasks[task_id], "error")
+        await close_task(task_id)
 
 
-@flusimApp.post("/r0/calibrate", status_code=202)
-async def r0CalibrationRoute(config: OverrideTemplate) -> dict[str, str]:
+@flusim_server_app.post("/r0/calibrate", status_code=202)
+async def r0_calibration_route(config: OverrideTemplate) -> dict[str, str]:
     """
     Async route function to calculate beta for a given basic reproduction number
 
@@ -447,24 +453,24 @@ async def r0CalibrationRoute(config: OverrideTemplate) -> dict[str, str]:
             dashboard client.
     """
 
-    # TODO: Make taskID a cookie if it helps with reload preservation
-    taskID = str(uuid.uuid4())
-    active_tasks[taskID] = TaskData(taskID)
+    # TODO: Make task_id a cookie if it helps with reload preservation
+    task_id = str(uuid.uuid4())
+    active_tasks[task_id] = TaskData(task_id)
 
-    calculateTask = asyncio.create_task(calibrateR0(taskID, config))
+    calculate_task = asyncio.create_task(calibrate_r0(task_id, config))
 
-    active_tasks[taskID].tasks.add(calculateTask)
+    active_tasks[task_id].tasks.add(calculate_task)
 
-    return {"taskID": taskID}
+    return {"task_id": task_id}
 
 
-@flusimApp.get("/r0/calibrate/results/{taskID}")
-async def r0CalibrationResults(taskID: str, cleanup: BackgroundTasks):
+@flusim_server_app.get("/r0/calibrate/results/{task_id}")
+async def r0_calibration_results(task_id: str, cleanup: BackgroundTasks):
     """
     Async route function to obtain the results of r0 calibration.
 
     Parameters:
-        taskID (str): The ID distinguishing this server task.
+        task_id (str): The ID distinguishing this server task.
 
         cleanup (BackgroundTasks): An object that will have file removal
             functions attached to it to remove simulation data once this
@@ -474,37 +480,39 @@ async def r0CalibrationResults(taskID: str, cleanup: BackgroundTasks):
         HTTPException: If the specified ID does not exist or has no results
             (uses 404 status code) or is still running (raises 503 status code).
     """
-    TaskData = active_tasks.get(taskID)
-    if TaskData is None:
+    task_data = active_tasks.get(task_id)
+    if task_data is None:
         raise HTTPException(404, "The task with the requested ID could not be found")
 
-    currentStatus = TaskData.status
-    if currentStatus != "completed":
+    current_status = task_data.status
+    if current_status != "completed":
         raise HTTPException(503, "The requested task is still ongoing")
 
-    resultsDict = TaskData.results
+    results_dict = task_data.results
 
-    if not isinstance(resultsDict, dict):
+    if not isinstance(results_dict, dict):
         raise HTTPException(
             404,
-            "The beta estimate for the task with the requested ID could not be found",
+            "The beta estimate for the task with "
+            "the requested ID could not be found",
         )
 
-    cleanup.add_task(closeTask, taskID)
+    cleanup.add_task(close_task, task_id)
 
-    return resultsDict
+    return results_dict
 
 
 # Calculation (receive beta, return r0)
-async def calculateR0(taskID: str, params: CommunityOverride):
+async def calculate_r0(task_id: str, params: CommunityOverride):
     """
-    Async function to calculate the basic reproduction number for a given scenario
+    Async function to calculate the basic reproduction number for a given
+    scenario
 
     Parameters:
-        taskID (str): The ID distinguishing this server task.
+        task_id (str): The ID distinguishing this server task.
 
-        params (CommunityOverride): The parameters to calculate the reproduction
-            number for.
+        params (CommunityOverride): The parameters to calculate the
+            reproduction number for.
     """
 
     try:
@@ -512,41 +520,43 @@ async def calculateR0(taskID: str, params: CommunityOverride):
         await asyncio.sleep(1)
 
         # Get relevant attributes from config file and sim data
-        taskData = active_tasks.get(taskID)
-        if taskData is None:
+        task_data = active_tasks.get(task_id)
+        if task_data is None:
             raise ValueError("The task with the requested ID could not be found")
         community = params.name
-        print(f"R0 calculation requested, ID = {taskID}")
+        print(f"R0 calculation requested, ID = {task_id}")
 
         # Log the files that will be created over the course of the simulation
-        taskData.files = set()
+        task_data.files = set()
 
         # Generate config files
-        await updateStatus(taskData, "generatingToolbox")
-        toolboxPath = generateToolboxConfig(taskData, "1000", "-r0Calculation")
-        await updateStatus(taskData, "generatingConfig")
-        paramPath = generateCalibrationConfig(taskData, params)
+        await update_status(task_data, "generatingToolbox")
+        toolbox_path = generate_toolbox_config(task_data, "1000", "-r0_calculation")
+        await update_status(task_data, "generating_config")
+        parameter_path = generate_calibration_config(task_data, params)
         print(
-            f"Toolbox file located at {toolboxPath}; parameters located at {paramPath}"
+            f"Toolbox file located at {toolbox_path}; "
+            f"parameters located at {parameter_path}"
         )
 
         # Run the Flusim simulation
-        r0, interval = await runCalculation(community, paramPath, toolboxPath)
+        r0, interval = await run_calculation(community, parameter_path, toolbox_path)
         print(f"Estimated R0: {r0} with CI of [{interval[0]}, {interval[1]}]")
 
-        taskData.results = {"r0": r0, "interval": interval}
-        await updateStatus(taskData, "completed")
+        task_data.results = {"r0": r0, "interval": interval}
+        await update_status(task_data, "completed")
     except Exception as e:
         # TODO: Add more info to errors like this
-        print(f"Error while calculating r0 {taskID}:\n{e}")
-        await updateStatus(active_tasks[taskID], "error")
-        await closeTask(taskID)
+        print(f"Error while calculating r0 {task_id}:\n{e}")
+        await update_status(active_tasks[task_id], "error")
+        await close_task(task_id)
 
 
-@flusimApp.post("/r0/calculate", status_code=202)
-async def r0CalculationRoute(config: CommunityOverride) -> dict[str, str]:
+@flusim_server_app.post("/r0/calculate", status_code=202)
+async def r0_calculation_route(config: CommunityOverride) -> dict[str, str]:
     """
-    Async route function to calculate the basic reproduction number for a given scenario
+    Async route function to calculate the basic reproduction number for a given
+    scenario
 
     Parameters:
         config (CommunityOverride): The community and parameters
@@ -559,24 +569,24 @@ async def r0CalculationRoute(config: CommunityOverride) -> dict[str, str]:
             dashboard client.
     """
 
-    # TODO: Make taskID a cookie if it helps with reload preservation
-    taskID = str(uuid.uuid4())
-    active_tasks[taskID] = TaskData(taskID)
+    # TODO: Make task_id a cookie if it helps with reload preservation
+    task_id = str(uuid.uuid4())
+    active_tasks[task_id] = TaskData(task_id)
 
-    calculateTask = asyncio.create_task(calculateR0(taskID, config))
+    calculate_task = asyncio.create_task(calculate_r0(task_id, config))
 
-    active_tasks[taskID].tasks.add(calculateTask)
+    active_tasks[task_id].tasks.add(calculate_task)
 
-    return {"taskID": taskID}
+    return {"task_id": task_id}
 
 
-@flusimApp.get("/r0/calculate/results/{taskID}")
-async def r0CalculationResults(taskID: str, cleanup: BackgroundTasks):
+@flusim_server_app.get("/r0/calculate/results/{task_id}")
+async def r0_calculation_results(task_id: str, cleanup: BackgroundTasks):
     """
     Async route function to obtain the results of r0 calculation.
 
     Parameters:
-        taskID (str): The ID distinguishing this server task.
+        task_id (str): The ID distinguishing this server task.
 
         cleanup (BackgroundTasks): An object that will have file removal
             functions attached to it to remove simulation data once this
@@ -586,22 +596,22 @@ async def r0CalculationResults(taskID: str, cleanup: BackgroundTasks):
         HTTPException: If the specified ID does not exist or has no results
             (uses 404 status code) or is still running (raises 503 status code).
     """
-    TaskData = active_tasks.get(taskID)
-    if TaskData is None:
+    task_data = active_tasks.get(task_id)
+    if task_data is None:
         raise HTTPException(404, "The task with the requested ID could not be found")
 
-    currentStatus = TaskData.status
-    if currentStatus != "completed":
+    current_status = task_data.status
+    if current_status != "completed":
         raise HTTPException(503, "The requested task is still ongoing")
 
-    resultsDict = TaskData.results
+    results_dict = task_data.results
 
-    if not isinstance(resultsDict, dict):
+    if not isinstance(results_dict, dict):
         raise HTTPException(
             404,
             "The r0 estimate for the task with the requested ID could not be found",
         )
 
-    cleanup.add_task(closeTask, taskID)
+    cleanup.add_task(close_task, task_id)
 
-    return resultsDict
+    return results_dict

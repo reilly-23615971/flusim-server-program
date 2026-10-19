@@ -3,31 +3,16 @@
 # Functions for calibrating or calculating basic reproduction numbers
 
 # Imports
-import logging
-import os
 import re
-import sys
 from argparse import Namespace
 from datetime import datetime
 
 from ServerFiles.ModelSchema import CommunityOverride, OverrideTemplate
-from ServerFiles.SharedResources import (
-    displayTime,
-    SIMULATOR_LOCATION,
-    TOOLBOX_LOCATION,
-)
+from ServerFiles.SharedResources import display_time
 from ServerFiles.Types import CommunityName, TaskData
 
-# Logging
-r0Log = logging.getLogger(__name__)
 
-# Ensure Flusim imports work properly when called outside of toolbox
-sys.path.append(
-    os.path.join(os.getcwd(), SIMULATOR_LOCATION, os.path.dirname(TOOLBOX_LOCATION))
-)
-
-
-def generateCalibrationConfig(
+def generate_calibration_config(
     task: TaskData, params: CommunityOverride | OverrideTemplate
 ) -> str:
     """
@@ -43,17 +28,15 @@ def generateCalibrationConfig(
         str: The file path for the newly created configuration file.
     """
     # Log filename preemptively in case of cancellation
-    r0ConfigPath = f"tempFiles/r0_config_{task.taskID}.json"
-    task.files.add(r0ConfigPath)
+    calibration_config_path = f"temp-files/r0_config_{task.task_id}.json"
+    task.files.add(calibration_config_path)
     print(
-        (
-            "[generateCalibrationConfig] Generating r0 "
-            f"configuration file {r0ConfigPath}"
-        )
+        "[generate_calibration_config] Generating r0 "
+        f"configuration file {calibration_config_path}"
     )
 
     # Exclude unused parameters
-    excludedParams = {
+    excluded_params = {
         "parameters": {
             "Scenario_Parameter": {
                 "start_day_of_week",
@@ -80,15 +63,15 @@ def generateCalibrationConfig(
             },
         }
     }
-    with open(r0ConfigPath, "w") as file:
+    with open(calibration_config_path, "w") as file:
         file.write(
-            params.model_dump_json(indent=2, exclude_none=True, exclude=excludedParams)
+            params.model_dump_json(indent=2, exclude_none=True, exclude=excluded_params)
         )
-    return r0ConfigPath
+    return calibration_config_path
 
 
-async def runCalibration(
-    r0: float, communityName: CommunityName, configPath: str, toolboxPath: str
+async def run_calibration(
+    r0: float, community_name: CommunityName, config_path: str, toolbox_path: str
 ):
     """
     Function to determine what value of beta is needed to achieve the desired
@@ -99,12 +82,12 @@ async def runCalibration(
             infections should be caused by a single infected individual over the
             pathogen's lifespan).
 
-        communityName (str): The name of the community being simulated (e.g. Newcastle).
+        community_name (str): The name of the community being simulated (e.g. Newcastle).
 
-        configPath (str): The path to the file containing the parameters to
+        config_path (str): The path to the file containing the parameters to
             estimate r0 for.
 
-        toolboxPath (str): The path to the file containing settings for the
+        toolbox_path (str): The path to the file containing settings for the
             toolbox commands.
     """
 
@@ -112,60 +95,63 @@ async def runCalibration(
     from logger import LogLevel
     from ToolboxConfiguration import ToolboxConfiguration
 
-    from ServerFiles.ToolboxOverrides import R0CalibrationWithData
+    from ServerFiles.ToolboxOverrides import R0CalibrationWithTask
 
-    runStartTime = datetime.now()
-    toolboxConfig = ToolboxConfiguration(toolboxPath)
+    run_start_time = datetime.now()
+    toolbox_config = ToolboxConfiguration(toolbox_path)
 
     # Calculate R0
-    commandOutput = await R0CalibrationWithData().run_command_async(
+    command_output = await R0CalibrationWithTask().run_command_async(
         Namespace(
-            community=communityName,
-            scenario=configPath,
+            community=community_name,
+            scenario=config_path,
             use_baseline=True,
             sample_size=2000,
             target_r0=r0,
             max_r0_diff=0.005,
             log_level=LogLevel.WARNING,
         ),
-        config=toolboxConfig,
+        config=toolbox_config,
     )
-    if commandOutput is not None:
-        results = commandOutput[-2]
-        resultMatches = re.search(
-            r"A R0 of (.*?) \(95% CI \[(.*?), (.*?)\]\) calculated for a beta of (.*?)$",
+    if command_output is not None:
+        results = command_output[-2]
+        result_matches = re.search(
+            r"A R0 of (.*?) \(95% CI \[(.*?), (.*?)\]\) "
+            r"calculated for a beta of (.*?)$",
             results,
         )
-        if resultMatches:
-            r0 = float(resultMatches.group(1))
-            lowerBound = float(resultMatches.group(2))
-            upperBound = float(resultMatches.group(3))
-            finalBeta = float(resultMatches.group(4))
-            print(f"""
-[runCalibration] Finished calibrating r0 in {displayTime(runStartTime)}\n
-            """)
-            return r0, (lowerBound, upperBound), finalBeta
+        if result_matches:
+            r0 = float(result_matches.group(1))
+            lower_bound = float(result_matches.group(2))
+            upper_bound = float(result_matches.group(3))
+            final_beta = float(result_matches.group(4))
+            print(
+                "[run_calibration] Finished calibrating r0 "
+                f"in {display_time(run_start_time)}\n"
+            )
+            return r0, (lower_bound, upper_bound), final_beta
 
-    print(f"""
-[runCalibration] Failed to calibrate r0 after {displayTime(runStartTime)}\n
-    """)
+    print(
+        "[run_calibration] Failed to calibrate r0"
+        f"after {display_time(run_start_time)}\n"
+    )
     return None, (None, None), None
 
 
-async def runCalculation(
-    communityName: CommunityName, configPath: str, toolboxPath: str
+async def run_calculation(
+    community_name: CommunityName, config_path: str, toolbox_path: str
 ):
     """
     Function to use the provided config parameters to estimate the basic
     reproduction number.
 
     Parameters:
-        communityName (str): The name of the community being simulated (e.g. Newcastle).
+        community_name (str): The name of the community being simulated (e.g. Newcastle).
 
-        configPath (str): The path to the file containing the parameters to
+        config_path (str): The path to the file containing the parameters to
             estimate r0 for.
 
-        toolboxPath (str): The path to the file containing settings for the
+        toolbox_path (str): The path to the file containing settings for the
             toolbox commands.
     """
 
@@ -173,38 +159,40 @@ async def runCalculation(
     from logger import LogLevel
     from ToolboxConfiguration import ToolboxConfiguration
 
-    from ServerFiles.ToolboxOverrides import R0CalculationWithData
+    from ServerFiles.ToolboxOverrides import R0CalculationWithTask
 
-    runStartTime = datetime.now()
-    toolboxConfig = ToolboxConfiguration(toolboxPath)
+    run_start_time = datetime.now()
+    toolbox_config = ToolboxConfiguration(toolbox_path)
 
     # Calculate R0
-    commandOutput = await R0CalculationWithData().run_command_async(
+    command_output = await R0CalculationWithTask().run_command_async(
         Namespace(
-            community=communityName,
-            scenario=configPath,
+            community=community_name,
+            scenario=config_path,
             use_baseline=True,
             sample_size=2000,
             log_level=LogLevel.DEBUG,
         ),
-        config=toolboxConfig,
+        config=toolbox_config,
     )
-    if commandOutput is not None:
-        results = commandOutput[-1]
-        resultMatches = re.search(
+    if command_output is not None:
+        results = command_output[-1]
+        result_matches = re.search(
             r"R0 calculated to be (.*?) with 95% confidence interval of \[(.*?), (.*?)\]",
             results,
         )
-        if resultMatches:
-            r0 = float(resultMatches.group(1))
-            lowerBound = float(resultMatches.group(2))
-            upperBound = float(resultMatches.group(3))
-            print(f"""
-[runCalculation] Finished calculating r0 in {displayTime(runStartTime)}\n
-            """)
-            return r0, (lowerBound, upperBound)
+        if result_matches:
+            r0 = float(result_matches.group(1))
+            lower_bound = float(result_matches.group(2))
+            upper_bound = float(result_matches.group(3))
+            print(
+                "[run_calculation] Finished calculating r0 "
+                f"in {display_time(run_start_time)}\n"
+            )
+            return r0, (lower_bound, upper_bound)
 
-    print(f"""
-[runCalculation] Failed to calculate r0 after {displayTime(runStartTime)}\n
-    """)
+    print(
+        "[run_calculation] Failed to calculate r0 "
+        f"after {display_time(run_start_time)}\n"
+    )
     return None, (None, None)

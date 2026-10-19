@@ -12,14 +12,14 @@ import time
 from argparse import ArgumentParser, Namespace
 from typing import Optional
 
-from ServerFiles.SharedResources import updateStatus, SIMULATOR_LOCATION
+from ServerFiles.SharedResources import SIMULATOR_LOCATION, update_status
 from ServerFiles.Types import TaskData
 
 # Ensure Flusim imports work properly when called outside of toolbox
 sys.path.append(os.path.join(os.getcwd(), SIMULATOR_LOCATION, "src/toolbox"))
 
 # Logging
-overrideLog = logging.getLogger(__name__)
+override_log = logging.getLogger(__name__)
 
 # TODO: Just modify the toolbox repo itself rather than using these workarounds
 
@@ -27,10 +27,10 @@ from commands.Run.RunCommand import RunCommand
 from ToolboxConfiguration import ToolboxConfiguration
 
 
-class RunCommandWithData(RunCommand):
+class RunCommandWithTask(RunCommand):
     """
-    Modified version of the toolbox's RunCommand that contains a TaskData object,
-    allowing for updates to its status and mid-simulation termination
+    Modified version of the toolbox's RunCommand that contains a TaskData
+    object, allowing for updates to its status and mid-simulation termination
     """
 
     name = "run"
@@ -46,32 +46,32 @@ class RunCommandWithData(RunCommand):
     ) -> None:
         from commands.Run.ScenarioBuilder import ScenarioBuilder
 
-        startTime = time.monotonic()
+        start_time = time.monotonic()
 
         # Since the C++ code is multithreaded now, we don't need to multithread here!
         queue_builder = ScenarioBuilder(config, args.guide)
         for index, scenario in enumerate(queue_builder.generateScenarios()):
             # Update status for dashboard
             if self.sim is not None:
-                overrideLog.info(f"\n\nAbout to run simulation number {index}\n\n")
-                await updateStatus(self.sim, f"runningSim{index}")
+                override_log.info(f"\n\nAbout to run simulation number {index}\n\n")
+                await update_status(self.sim, f"running_sim{index}")
             # Note that the progress bar generated in the terminal is part of
             # the simulator's C++ code, so using it for dashboard progress
             # would be difficult
-            await asyncio.to_thread(runScenario, scenario, self.sim, False)
-        duration = time.monotonic() - startTime
-        formattedDuration = str(datetime.timedelta(seconds=round(duration)))
-        overrideLog.info("All simulations completed in " + formattedDuration)
+            await asyncio.to_thread(run_scenario, scenario, self.sim, False)
+        duration = time.monotonic() - start_time
+        formatted_duration = str(datetime.timedelta(seconds=round(duration)))
+        override_log.info("All simulations completed in " + formatted_duration)
 
 
 from commands.StandaloneRun import StandaloneRunCommand
 
 
-class StandaloneRunWithData(StandaloneRunCommand):
+class StandaloneRunWithTask(StandaloneRunCommand):
     """
     Modified version of the toolbox's StandaloneRunCommand that contains a
-    TaskData object, allowing for status updates and reading the output directly
-    rather than printing it to the terminal
+    TaskData object, allowing for status updates and reading the output
+    directly rather than printing it to the terminal
     """
 
     from ToolboxConfiguration import ToolboxConfiguration
@@ -88,20 +88,20 @@ class StandaloneRunWithData(StandaloneRunCommand):
         from commands.Run.ScenarioRunner import ScenarioParameters, ScenarioRunner
         from JsonWithCommentsDecoder import JsonWithCommentsDecoder
 
-        startTime = time.monotonic()
+        start_time = time.monotonic()
         community = config.get_community_config(args.community)
         parameters = ScenarioParameters()
 
-        with open(args.scenario) as scenarioFile:
-            scenarioJson = json.load(scenarioFile, cls=JsonWithCommentsDecoder)
-            parameters.merge(scenarioJson)
+        with open(args.scenario) as scenario_file:
+            scenario_json = json.load(scenario_file, cls=JsonWithCommentsDecoder)
+            parameters.merge(scenario_json)
 
         parameters.commandArguments.merge(self.getCommandArguments(args))
 
         # Update status for dashboard
         if self.task is not None:
-            overrideLog.info(f"\n\nAbout to calculate r0\n\n")
-            await updateStatus(self.task, f"running")
+            override_log.info(f"\n\nAbout to calculate r0\n\n")
+            await update_status(self.task, f"running")
 
         try:
             runner = ScenarioRunner(
@@ -111,17 +111,17 @@ class StandaloneRunWithData(StandaloneRunCommand):
                 parameters,
                 self.getDbPath(args),
             )
-            output = await asyncio.to_thread(runScenario, runner, self.task, True)
+            output = await asyncio.to_thread(run_scenario, runner, self.task, True)
         finally:
             self.cleanup()
 
-        duration = time.monotonic() - startTime
-        formattedDuration = str(datetime.timedelta(seconds=round(duration)))
-        overrideLog.info("R0 calculation completed in " + formattedDuration)
+        duration = time.monotonic() - start_time
+        formatted_duration = str(datetime.timedelta(seconds=round(duration)))
+        override_log.info("R0 calculation completed in " + formatted_duration)
         return output
 
 
-class R0CalibrationWithData(StandaloneRunWithData):
+class R0CalibrationWithTask(StandaloneRunWithTask):
     """
     R0Calibration command that inherits status and asynchronicity
     """
@@ -172,7 +172,7 @@ class R0CalibrationWithData(StandaloneRunWithData):
         os.remove(self.db.name)
 
 
-class R0CalculationWithData(StandaloneRunWithData):
+class R0CalculationWithTask(StandaloneRunWithTask):
     """
     R0Calculation command that inherits status and asynchronicity
     """
@@ -210,8 +210,8 @@ class R0CalculationWithData(StandaloneRunWithData):
 from commands.Run.ScenarioRunner import ScenarioRunner
 
 
-def runScenario(
-    scenario: ScenarioRunner, sim: Optional[TaskData], captureOutput: bool = False
+def run_scenario(
+    scenario: ScenarioRunner, sim: Optional[TaskData], capture_output: bool = False
 ):
     """
     Modified version of ScenarioRunner's run function that
@@ -223,15 +223,15 @@ def runScenario(
 
     # Parameter validation
     if not isinstance(scenario, ScenarioRunner):
-        overrideLog.error(f"runScenario called on non-scenario object {scenario}")
+        override_log.error(f"run_scenario called on non-scenario object {scenario}")
         return
     if not isinstance(sim, TaskData) and sim is not None:
-        overrideLog.error(f"runScenario called with non-TaskData {scenario}")
+        override_log.error(f"run_scenario called with non-TaskData {scenario}")
         return
 
     # Construct SQLite database
     shutil.copy(scenario.community.population_model, scenario.scenarioDb)
-    overrideLog.debug(
+    override_log.debug(
         f"Created {scenario.scenarioDb} from community {scenario.community.name}"
     )
 
@@ -248,23 +248,23 @@ def runScenario(
     connection.commit()
 
     command = scenario.getCommand()
-    overrideLog.info(f"Running {scenario.command} {scenario.scenarioDb}")
-    overrideLog.debug(f"With command-line invocation: {command}")
-    overrideLog.debug(f"Output is {'' if captureOutput else 'not '}being captured")
-    simProcess = subprocess.Popen(
-        command, stdout=subprocess.PIPE if captureOutput else None, text=True
+    override_log.info(f"Running {scenario.command} {scenario.scenarioDb}")
+    override_log.debug(f"With command-line invocation: {command}")
+    override_log.debug(f"Output is {'' if capture_output else 'not '}being captured")
+    sim_process = subprocess.Popen(
+        command, stdout=subprocess.PIPE if capture_output else None, text=True
     )
     if sim is not None:
-        sim.process = simProcess
+        sim.process = sim_process
     # TODO: Is list the best container for this output?
-    outputLines = []
-    if captureOutput:
-        if simProcess.stdout is None:
+    output_lines = []
+    if capture_output:
+        if sim_process.stdout is None:
             raise AssertionError("Failed to capture scenario process output")
         # TODO: See if captured output can make dashboard progress bars more dynamic
-        for line in simProcess.stdout:
+        for line in sim_process.stdout:
             print(line, end="")
-            outputLines.append(line)
-    simProcess.wait()
-    if captureOutput:
-        return outputLines
+            output_lines.append(line)
+    sim_process.wait()
+    if capture_output:
+        return output_lines
