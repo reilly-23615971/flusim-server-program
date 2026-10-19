@@ -12,7 +12,7 @@ from datetime import datetime
 
 import pandas as pd
 
-from ServerFiles.ModelSchema import communityOverride, overrideTemplate
+from ServerFiles.ModelSchema import CommunityOverride, OverrideTemplate
 from ServerFiles.SharedResources import (
     TaskData,
     displayTime,
@@ -30,7 +30,7 @@ sys.path.append(
 
 
 def generateCalibrationConfig(
-    task: TaskData, params: communityOverride | overrideTemplate
+    task: TaskData, params: CommunityOverride | OverrideTemplate
 ) -> str:
     """
     Function to generate the required parameter config file for r0 calibration
@@ -38,7 +38,7 @@ def generateCalibrationConfig(
     Parameters:
         task (TaskData): The object containing the data used for this task.
 
-        params (communityOverride or overrideTemplate): The parameters to
+        params (CommunityOverride or OverrideTemplate): The parameters to
             save to the config.
 
     Returns:

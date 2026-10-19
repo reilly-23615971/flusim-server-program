@@ -24,7 +24,7 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-from ServerFiles.ModelSchema import communityOverride, modelGuideFile, overrideTemplate
+from ServerFiles.ModelSchema import CommunityOverride, ModelGuideFile, OverrideTemplate
 from ServerFiles.R0Functions import (
     generateCalibrationConfig,
     runCalculation,
@@ -179,7 +179,7 @@ async def stopTaskRoute(taskID: str, cleanup: BackgroundTasks):
 
 
 # Running simulation experiments
-async def runModel(taskID: str, config: modelGuideFile):
+async def runModel(taskID: str, config: ModelGuideFile):
     """
     Async function to run a simulation experiment based on parameters
     from the dashboard, then zip the analysed statistics.
@@ -187,7 +187,7 @@ async def runModel(taskID: str, config: modelGuideFile):
     Parameters:
         taskID (str): The ID distinguishing this simulation task.
 
-        config (modelGuideFile): The parameters and other settings that
+        config (ModelGuideFile): The parameters and other settings that
             will define the simulation experiment.
     """
     try:
@@ -304,16 +304,17 @@ async def runModel(taskID: str, config: modelGuideFile):
         await updateStatus(activeTasks[taskID], "error")
         await closeTask(taskID)
 
+
 # TODO: runModelTask might sometimes become its own child and cause
 # recursion errors when cancelling it? Investigate
 @flusimApp.post("/runModel", status_code=202)
-async def runModelRoute(config: modelGuideFile) -> dict[str, str]:
+async def runModelRoute(config: ModelGuideFile) -> dict[str, str]:
     """
     Async route function to begin a simulation experiment and give the
     dashboard an ID to poll for status updates.
 
     Parameters:
-        config (modelGuideFile): The parameters and other settings that
+        config (ModelGuideFile): The parameters and other settings that
             will define the simulation experiment.
 
     Returns:
@@ -379,14 +380,14 @@ The analysis results for the simulation with the requested ID could not be found
 
 # Calibration (receive r0, return beta)
 # R0 analysis
-async def calibrateR0(taskID: str, params: overrideTemplate):
+async def calibrateR0(taskID: str, params: OverrideTemplate):
     """
     Async function to calculate beta for a given basic reproduction number
 
     Parameters:
         taskID (str): The ID distinguishing this server task.
 
-        params (overrideTemplate): The parameters to calculate beta for,
+        params (OverrideTemplate): The parameters to calculate beta for,
             including the target r0.
     """
 
@@ -432,12 +433,12 @@ async def calibrateR0(taskID: str, params: overrideTemplate):
 
 
 @flusimApp.post("/r0/calibrate", status_code=202)
-async def r0CalibrationRoute(config: overrideTemplate) -> dict[str, str]:
+async def r0CalibrationRoute(config: OverrideTemplate) -> dict[str, str]:
     """
     Async route function to calculate beta for a given basic reproduction number
 
     Parameters:
-        config (overrideTemplate): The r0 and parameters to calculate beta with.
+        config (OverrideTemplate): The r0 and parameters to calculate beta with.
 
     Returns:
         dict: A dictionary containing the ID assigned to this particular
@@ -495,14 +496,14 @@ async def r0CalibrationResults(taskID: str, cleanup: BackgroundTasks):
 
 
 # Calculation (receive beta, return r0)
-async def calculateR0(taskID: str, params: communityOverride):
+async def calculateR0(taskID: str, params: CommunityOverride):
     """
     Async function to calculate the basic reproduction number for a given scenario
 
     Parameters:
         taskID (str): The ID distinguishing this server task.
 
-        params (communityOverride): The parameters to calculate the reproduction
+        params (CommunityOverride): The parameters to calculate the reproduction
             number for.
     """
 
@@ -543,12 +544,12 @@ async def calculateR0(taskID: str, params: communityOverride):
 
 
 @flusimApp.post("/r0/calculate", status_code=202)
-async def r0CalculationRoute(config: communityOverride) -> dict[str, str]:
+async def r0CalculationRoute(config: CommunityOverride) -> dict[str, str]:
     """
     Async route function to calculate the basic reproduction number for a given scenario
 
     Parameters:
-        config (communityOverride): The community and parameters
+        config (CommunityOverride): The community and parameters
             to calculate r0 with.
 
     Returns:

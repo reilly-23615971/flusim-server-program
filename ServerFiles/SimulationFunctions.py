@@ -13,7 +13,7 @@ from typing import Optional
 
 import pandas as pd
 
-from ServerFiles.ModelSchema import modelGuideFile
+from ServerFiles.ModelSchema import ModelGuideFile
 from ServerFiles.SharedResources import (
     TaskData,
     displayTime,
@@ -84,7 +84,7 @@ def generateToolboxConfig(
 async def runSimulation(
     sim: TaskData,
     fileID: Optional[str],
-    configData: modelGuideFile,
+    configData: ModelGuideFile,
     toolboxPath: str,
 ):
     """
@@ -96,7 +96,7 @@ async def runSimulation(
         fileID (str): The numeric identifier for the files generated for this
             simulation, stored as a string.
 
-        configData (modelGuideFile): The parameters and other settings that
+        configData (ModelGuideFile): The parameters and other settings that
             will define the simulation experiment.
 
         toolboxPath (str): The path to the file containing settings for the
