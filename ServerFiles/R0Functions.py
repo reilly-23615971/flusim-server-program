@@ -10,22 +10,20 @@ import sys
 from argparse import Namespace
 from datetime import datetime
 
-import pandas as pd
-
 from ServerFiles.ModelSchema import CommunityOverride, OverrideTemplate
 from ServerFiles.SharedResources import (
-    TaskData,
     displayTime,
-    simLocation,
-    toolboxLocation,
+    SIMULATOR_LOCATION,
+    TOOLBOX_LOCATION,
 )
+from ServerFiles.Types import CommunityName, TaskData
 
 # Logging
 r0Log = logging.getLogger(__name__)
 
 # Ensure Flusim imports work properly when called outside of toolbox
 sys.path.append(
-    os.path.join(os.getcwd(), simLocation, os.path.dirname(toolboxLocation))
+    os.path.join(os.getcwd(), SIMULATOR_LOCATION, os.path.dirname(TOOLBOX_LOCATION))
 )
 
 
@@ -90,7 +88,7 @@ def generateCalibrationConfig(
 
 
 async def runCalibration(
-    r0: float, communityName: str, configPath: str, toolboxPath: str
+    r0: float, communityName: CommunityName, configPath: str, toolboxPath: str
 ):
     """
     Function to determine what value of beta is needed to achieve the desired
@@ -154,7 +152,9 @@ async def runCalibration(
     return None, (None, None), None
 
 
-async def runCalculation(communityName: str, configPath: str, toolboxPath: str):
+async def runCalculation(
+    communityName: CommunityName, configPath: str, toolboxPath: str
+):
     """
     Function to use the provided config parameters to estimate the basic
     reproduction number.

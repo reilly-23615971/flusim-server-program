@@ -12,11 +12,11 @@ import time
 from argparse import ArgumentParser, Namespace
 from typing import Optional
 
-from ServerFiles.SharedResources import updateStatus
-from ServerFiles.SimulationFunctions import TaskData, simLocation
+from ServerFiles.SharedResources import updateStatus, SIMULATOR_LOCATION
+from ServerFiles.Types import TaskData
 
 # Ensure Flusim imports work properly when called outside of toolbox
-sys.path.append(os.path.join(os.getcwd(), simLocation, "src/toolbox"))
+sys.path.append(os.path.join(os.getcwd(), SIMULATOR_LOCATION, "src/toolbox"))
 
 # Logging
 overrideLog = logging.getLogger(__name__)

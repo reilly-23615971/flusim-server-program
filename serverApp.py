@@ -31,21 +31,20 @@ from ServerFiles.R0Functions import (
     runCalibration,
 )
 from ServerFiles.SharedResources import (
-    activeTasks,
     clearFiles,
-    deleteGeneratedFiles,
-    executableLocation,
-    toolboxLocation,
+    DELETE_GENERATED_FILES,
+    EXECUTABLE_LOCATION,
+    TOOLBOX_LOCATION,
     updateStatus,
 )
 from ServerFiles.SimulationFunctions import (
-    TaskData,
     asir,
     displayTime,
     epidemic,
     generateToolboxConfig,
     runSimulation,
 )
+from ServerFiles.Types import COMMUNITY_NAMES, TaskData, active_tasks
 
 
 @asynccontextmanager
@@ -55,10 +54,10 @@ async def lifespan(app: FastAPI):
     """
     yield
     # Cancel any remaining processes and delete remaining files
-    tasksToClose = list(activeTasks.keys())
+    tasksToClose = list(active_tasks.keys())
     for task in tasksToClose:
         # TODO: Is sending one last message before sockets disconnect possible?
-        # await updateStatus(activeTasks[task], "shutdown")
+        # await updateStatus(active_tasks[task], "shutdown")
         await closeTask(task)
 
 
@@ -74,17 +73,17 @@ logging.basicConfig(
 )
 
 # Throw error if Flusim files aren't present
-if not os.path.isfile(toolboxLocation):
+if not os.path.isfile(TOOLBOX_LOCATION):
     raise FileNotFoundError(f"""
         Flusim toolbox files not found. Ensure that this application is present
         in the same directory as the Flusim simulation files, such that the
-        toolbox program is located at "{toolboxLocation}".
+        toolbox program is located at "{TOOLBOX_LOCATION}".
     """)
-if not os.path.isfile(executableLocation):
+if not os.path.isfile(EXECUTABLE_LOCATION):
     raise FileNotFoundError(f"""
         Flusim simulation engine executable not found. Ensure that the executable
         has been built (see the Flusim documentation for more info) and is located
-        at "{executableLocation}".
+        at "{EXECUTABLE_LOCATION}".
     """)
 
 
@@ -110,7 +109,7 @@ async def closeTask(taskID: str):
     Parameters:
         taskID (str): The ID distinguishing this server task.
     """
-    TaskData = activeTasks.get(taskID)
+    TaskData = active_tasks.get(taskID)
     if TaskData is None:
         return
 
@@ -118,9 +117,9 @@ async def closeTask(taskID: str):
     if TaskData.process is not None:
         TaskData.process.terminate()
     await TaskData.stopTasks()
-    if deleteGeneratedFiles:
+    if DELETE_GENERATED_FILES:
         clearFiles(TaskData.files)
-    del activeTasks[taskID]
+    del active_tasks[taskID]
     print(f"[closeTask] Finished closing task with ID {taskID}\n\n")
 
 
@@ -138,7 +137,7 @@ async def statusWebSocket(websocket: WebSocket, taskID: str):
         WebSocketException: If the specified ID does not exist (uses 1008 status code).
     """
     await websocket.accept()
-    TaskData = activeTasks.get(taskID)
+    TaskData = active_tasks.get(taskID)
     if TaskData is None:
         raise WebSocketException(
             1008, "The task with the requested ID could not be found"
@@ -172,7 +171,7 @@ async def stopTaskRoute(taskID: str, cleanup: BackgroundTasks):
     Raises:
         HTTPException: If the specified ID does not exist (uses 404 status code).
     """
-    TaskData = activeTasks.get(taskID)
+    TaskData = active_tasks.get(taskID)
     if TaskData is None:
         raise HTTPException(404, "The task with the requested ID could not be found")
     cleanup.add_task(closeTask, taskID)
@@ -196,7 +195,7 @@ async def runModel(taskID: str, config: ModelGuideFile):
         overallStartTime = datetime.now()
 
         # Get relevant attributes from config file and sim data
-        TaskData = activeTasks.get(taskID)
+        TaskData = active_tasks.get(taskID)
         if TaskData is None:
             raise ValueError("The simulation with the requested ID could not be found")
         fileID = config.description
@@ -301,7 +300,7 @@ async def runModel(taskID: str, config: ModelGuideFile):
     except Exception as e:
         # TODO: Add more info to errors like this
         print(f"Error while running simulation {taskID}:\n{e}")
-        await updateStatus(activeTasks[taskID], "error")
+        await updateStatus(active_tasks[taskID], "error")
         await closeTask(taskID)
 
 
@@ -325,11 +324,11 @@ async def runModelRoute(config: ModelGuideFile) -> dict[str, str]:
     """
     # TODO: Make taskID a cookie if it helps with reload preservation
     taskID = str(uuid.uuid4())
-    activeTasks[taskID] = TaskData(taskID)
+    active_tasks[taskID] = TaskData(taskID)
 
     runModelTask = asyncio.create_task(runModel(taskID, config))
 
-    activeTasks[taskID].tasks.add(runModelTask)
+    active_tasks[taskID].tasks.add(runModelTask)
 
     return {"taskID": taskID}
 
@@ -350,7 +349,7 @@ async def downloadSimulationResults(taskID: str, cleanup: BackgroundTasks):
         HTTPException: If the specified ID does not exist or has no results
             (uses 404 status code) or is still running (raises 503 status code).
     """
-    TaskData = activeTasks.get(taskID)
+    TaskData = active_tasks.get(taskID)
     if TaskData is None:
         raise HTTPException(
             404, "The simulation with the requested ID could not be found"
@@ -396,10 +395,11 @@ async def calibrateR0(taskID: str, params: OverrideTemplate):
         await asyncio.sleep(1)
 
         # Get relevant attributes from config file and sim data
-        taskData = activeTasks.get(taskID)
+        taskData = active_tasks.get(taskID)
         if taskData is None:
             raise ValueError("The task with the requested ID could not be found")
         community = params.name
+        assert community in COMMUNITY_NAMES
         if params.description is None:
             raise ValueError("No target r0 was provided")
         r0 = float(params.description)
@@ -428,7 +428,7 @@ async def calibrateR0(taskID: str, params: OverrideTemplate):
     except Exception as e:
         # TODO: Add more info to errors like this
         print(f"Error while calibrating r0 {taskID}:\n{e}")
-        await updateStatus(activeTasks[taskID], "error")
+        await updateStatus(active_tasks[taskID], "error")
         await closeTask(taskID)
 
 
@@ -449,11 +449,11 @@ async def r0CalibrationRoute(config: OverrideTemplate) -> dict[str, str]:
 
     # TODO: Make taskID a cookie if it helps with reload preservation
     taskID = str(uuid.uuid4())
-    activeTasks[taskID] = TaskData(taskID)
+    active_tasks[taskID] = TaskData(taskID)
 
     calculateTask = asyncio.create_task(calibrateR0(taskID, config))
 
-    activeTasks[taskID].tasks.add(calculateTask)
+    active_tasks[taskID].tasks.add(calculateTask)
 
     return {"taskID": taskID}
 
@@ -474,7 +474,7 @@ async def r0CalibrationResults(taskID: str, cleanup: BackgroundTasks):
         HTTPException: If the specified ID does not exist or has no results
             (uses 404 status code) or is still running (raises 503 status code).
     """
-    TaskData = activeTasks.get(taskID)
+    TaskData = active_tasks.get(taskID)
     if TaskData is None:
         raise HTTPException(404, "The task with the requested ID could not be found")
 
@@ -512,7 +512,7 @@ async def calculateR0(taskID: str, params: CommunityOverride):
         await asyncio.sleep(1)
 
         # Get relevant attributes from config file and sim data
-        taskData = activeTasks.get(taskID)
+        taskData = active_tasks.get(taskID)
         if taskData is None:
             raise ValueError("The task with the requested ID could not be found")
         community = params.name
@@ -539,7 +539,7 @@ async def calculateR0(taskID: str, params: CommunityOverride):
     except Exception as e:
         # TODO: Add more info to errors like this
         print(f"Error while calculating r0 {taskID}:\n{e}")
-        await updateStatus(activeTasks[taskID], "error")
+        await updateStatus(active_tasks[taskID], "error")
         await closeTask(taskID)
 
 
@@ -561,11 +561,11 @@ async def r0CalculationRoute(config: CommunityOverride) -> dict[str, str]:
 
     # TODO: Make taskID a cookie if it helps with reload preservation
     taskID = str(uuid.uuid4())
-    activeTasks[taskID] = TaskData(taskID)
+    active_tasks[taskID] = TaskData(taskID)
 
     calculateTask = asyncio.create_task(calculateR0(taskID, config))
 
-    activeTasks[taskID].tasks.add(calculateTask)
+    active_tasks[taskID].tasks.add(calculateTask)
 
     return {"taskID": taskID}
 
@@ -586,7 +586,7 @@ async def r0CalculationResults(taskID: str, cleanup: BackgroundTasks):
         HTTPException: If the specified ID does not exist or has no results
             (uses 404 status code) or is still running (raises 503 status code).
     """
-    TaskData = activeTasks.get(taskID)
+    TaskData = active_tasks.get(taskID)
     if TaskData is None:
         raise HTTPException(404, "The task with the requested ID could not be found")
 

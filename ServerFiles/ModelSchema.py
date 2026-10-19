@@ -18,180 +18,18 @@ from pydantic import (
     model_validator,
 )
 
-# Age groups
-type AgeGroup = Literal[
-    "Young Infant (0-6 Months)",
-    "Infant (7-24 Months)",
-    "Young Child (3-5 Years)",
-    "Child (6-12 Years)",
-    "Adolescent (13-17 Years)",
-    "Young Adult (18-24 Years)",
-    "Adult (25-44 Years)",
-    "Older Adult (45-64 Years)",
-    "Senior (65-79 Years)",
-    "Older Senior (80+ Years)",
-]
-type AgeWithTotal = AgeGroup | Literal["Total"]
-type AgeGroupKey = Literal[
-    "young_infant",  # 0-6 months
-    "infant",  # 7-24 months (0.5-2 years)
-    "young_child",  # 3-5 years
-    "child",  # 6-12 years
-    "adolescent",  # 13-17 years
-    "young_adult",  # 18-24 years
-    "adult",  # 25-44 years
-    "older_adult",  # 45-64 years
-    "senior",  # 65-79 years
-    "older_senior",  # 80+ years
-]
+from ServerFiles.Types import (
+    AgeGroupKey,
+    CommunityPatch,
+    CommunityName,
+    COMMUNITIES,
+)
 
-# Types of vaccine dose administered in the simulation
+# Logging
+validation_log = logging.getLogger(__name__)
+
+# Annotated Type Definitions
 type BoosterType = Literal["primary", "booster"]
-
-# Communities that can be modelled
-type CommunityName = Literal["albany", "cairns", "newcastle"]
-COMMUNITY_NAMES = get_args(CommunityName.__value__)
-
-# Locations in the simulation
-type AlbanyPatch = Literal[
-    "Albany",
-    "Kojonup",
-    "Plantagenet",
-    "Stirling Range National Park",
-    "Denmark",
-    "McKail - Willyung",
-    "Gnowangerup",
-    "Albany Region",
-    "Little Grove - Elleker",
-    "Bayonet Head - Lower King",
-    "Katanning",
-]
-type CairnsPatch = Literal[
-    "Westcourt - Bungalow",
-    "Cairns City",
-    "Redlynch",
-    "White Rock",
-    "Trinity Beach - Smithfield",
-    "Earlville - Bayview Heights",
-    "Clifton Beach - Kewarra Beach",
-    "Freshwater - Stratford",
-    "Woree",
-    "Mount Sheridan",
-    "Bentley Park",
-    "Gordonvale - Trinity",
-    "Whitfield - Edge Hill",
-    "Brinsmead",
-    "Lamb Range",
-    "Kanimbla - Mooroobool",
-    "Manunda",
-    "Edmonton",
-    "Manoora",
-    "Yorkeys Knob - Machans Beach",
-]
-type NewcastlePatch = Literal[
-    "Glendale - Cardiff - Hillsborough",
-    "Maryland - Fletcher - Minmi",
-    "Newcastle - Cooks Hill",
-    "Newcastle Port - Kooragang",
-    "Belmont - Bennetts Green",
-    "Belmont South - Blacksmiths",
-    "Shortland - Jesmond",
-    "Redhead",
-    "Wickham - Carrington - Tighes Hill",
-    "Valentine - Eleebana",
-    "Beresfield - Hexham",
-    "Swansea - Caves Beach",
-    "Hamilton - Broadmeadow",
-    "Charlestown - Dudley",
-    "Warners Bay - Boolaroo",
-    "Merewether - The Junction",
-    "Adamstown - Kotara",
-    "Wallsend - Elermore Vale",
-    "Stockton - Fullerton Cove",
-    "Lambton - New Lambton",
-    "Mayfield - Warabrook",
-    "Mount Hutton - Windale",
-    "Waratah - North Lambton",
-]
-ALBANY_PATCHES = get_args(AlbanyPatch.__value__)
-CAIRNS_PATCHES = get_args(CairnsPatch.__value__)
-NEWCASTLE_PATCHES = get_args(NewcastlePatch.__value__)
-type CommunityPatch = AlbanyPatch | CairnsPatch | NewcastlePatch
-
-
-@dataclass
-class CommunityData:
-    """
-    Class for storing a given community's relevant data
-    """
-
-    name: str
-    population: int
-    age_pops: dict[AgeWithTotal, int]
-    patches: Sequence[CommunityPatch]
-
-
-# Data for communities that can be modelled by the simulation
-ALBANY = CommunityData(
-    name="Albany",
-    population=55109,
-    age_pops={
-        "Young Infant (0-6 Months)": 669,
-        "Infant (7-24 Months)": 1430,
-        "Young Child (3-5 Years)": 2312,
-        "Child (6-12 Years)": 4782,
-        "Adolescent (13-17 Years)": 4126,
-        "Young Adult (18-24 Years)": 4061,
-        "Adult (25-44 Years)": 12841,
-        "Older Adult (45-64 Years)": 15668,
-        "Senior (65-79 Years)": 6806,
-        "Older Senior (80+ Years)": 2414,
-        "Total": 55109,
-    },
-    patches=ALBANY_PATCHES,
-)
-CAIRNS = CommunityData(
-    name="Cairns",
-    population=140402,
-    age_pops={
-        "Young Infant (0-6 Months)": 1837,
-        "Infant (7-24 Months)": 4277,
-        "Young Child (3-5 Years)": 6381,
-        "Child (6-12 Years)": 12650,
-        "Adolescent (13-17 Years)": 10432,
-        "Young Adult (18-24 Years)": 12074,
-        "Adult (25-44 Years)": 42394,
-        "Older Adult (45-64 Years)": 36541,
-        "Senior (65-79 Years)": 10675,
-        "Older Senior (80+ Years)": 3141,
-        "Total": 140402,
-    },
-    patches=CAIRNS_PATCHES,
-)
-NEWCASTLE = CommunityData(
-    name="Newcastle",
-    population=272407,
-    age_pops={
-        "Young Infant (0-6 Months)": 2742,
-        "Infant (7-24 Months)": 6641,
-        "Young Child (3-5 Years)": 10242,
-        "Child (6-12 Years)": 20603,
-        "Adolescent (13-17 Years)": 18513,
-        "Young Adult (18-24 Years)": 27015,
-        "Adult (25-44 Years)": 71299,
-        "Older Adult (45-64 Years)": 69949,
-        "Senior (65-79 Years)": 31384,
-        "Older Senior (80+ Years)": 14019,
-        "Total": 272407,
-    },
-    patches=NEWCASTLE_PATCHES,
-)
-COMMUNITIES: dict[CommunityName, CommunityData] = {
-    "albany": ALBANY,
-    "cairns": CAIRNS,
-    "newcastle": NEWCASTLE,
-}
-
 type TriggerCondition = Literal[
     "none",
     "timed",
@@ -200,11 +38,6 @@ type TriggerCondition = Literal[
     "community_rate",
     "per_primary_high_school_cases",
 ]
-
-# Logging
-validation_log = logging.getLogger(__name__)
-
-# Annotated Type Definitions
 type VaccinePriority = Literal["elderly", "healthcare", "essential_workers", "other"]
 type Kappa = Annotated[float, Ge(0)]
 # The following 3 types are structurally identical, but are

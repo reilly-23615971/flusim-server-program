@@ -14,126 +14,20 @@ from typing import Any
 
 from fastapi import WebSocket
 
+from ServerFiles.Types import TaskData
+
 # Logging
 sharedLog = logging.getLogger(__name__)
 
 # Constants
 
 # Set this to False to preserve files after running sim
-deleteGeneratedFiles = True
+DELETE_GENERATED_FILES = True
 
 # Change these if file location relative to Flusim changes
-simLocation = ""
-executableLocation = "src/simulator/build/src/simulator"
-toolboxLocation = "src/toolbox/toolbox.py"
-
-# Ensure Flusim imports work properly when called outside of toolbox
-sys.path.append(
-    os.path.join(os.getcwd(), simLocation, os.path.dirname(toolboxLocation))
-)
-
-
-class TaskData:
-    """
-    Class for information regarding a server task
-    """
-
-    def __init__(self, taskID):
-        self._taskID = taskID
-        self._websockets = []
-        self._tasks = set()
-        self._process = None
-        self._status = "start"
-        self._files = set()
-        self._results = None
-
-    @property
-    def taskID(self):
-        """ID associated with this simulation"""
-        return self._taskID
-
-    @property
-    def websockets(self):
-        """Websockets tied to the client that requested this simulation"""
-        # TODO: Does this need to be a list? 1 websocket per sim is normal
-        return self._websockets
-
-    @websockets.setter
-    def websockets(self, value: list[WebSocket]):
-        self._websockets = value
-
-    @websockets.deleter
-    def websockets(self):
-        # TODO: Should websockets be closed in this case?
-        del self._websockets
-
-    @property
-    def tasks(self):
-        """Set of asyncio tasks that relate to this simulation"""
-        return self._tasks
-
-    @tasks.setter
-    def tasks(self, value: set[Task]):
-        self._tasks = value
-
-    @property
-    def process(self):
-        """C++ subprocess currently running for this simulation"""
-        return self._process
-
-    @process.setter
-    def process(self, value: Popen):
-        self._process = value
-
-    @process.deleter
-    def process(self):
-        if self._process is not None:
-            self._process.terminate()
-        del self._process
-
-    @property
-    def status(self):
-        """String indicating the simulation's current progress"""
-        return self._status
-
-    @status.setter
-    def status(self, value: str):
-        self._status = value
-
-    @property
-    def files(self):
-        """Set of file paths for files that will be created for this simulation"""
-        return self._files
-
-    @files.setter
-    def files(self, value: set[str]):
-        self._files = value
-
-    @property
-    def results(self):
-        """Either the results to be returned, or the path to the returned file"""
-        return self._results
-
-    @results.setter
-    def results(self, value: Any):
-        self._results = value
-
-    async def stopTasks(self):
-        """Stop any currently running tasks for this simulation"""
-
-        for task in self.tasks:
-            # Naming tasks for logging would require Python 3.12
-            # We'll at least print them for debugging
-            sharedLog.info(f"Cancelling task {task}...")
-            task.cancel()
-
-        # Wait for all tasks to finish cancelling
-        if self.tasks:
-            await asyncio.gather(*self.tasks, return_exceptions=True)
-
-
-# Dict to store active tasks
-activeTasks: dict[str, TaskData] = dict()
+SIMULATOR_LOCATION = ""
+EXECUTABLE_LOCATION = "src/simulator/build/src/simulator"
+TOOLBOX_LOCATION = "src/toolbox/toolbox.py"
 
 
 def clearFiles(files: set[str]):

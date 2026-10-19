@@ -15,18 +15,18 @@ import pandas as pd
 
 from ServerFiles.ModelSchema import ModelGuideFile
 from ServerFiles.SharedResources import (
-    TaskData,
     displayTime,
-    simLocation,
-    toolboxLocation,
+    SIMULATOR_LOCATION,
+    TOOLBOX_LOCATION,
 )
+from ServerFiles.Types import CommunityName, TaskData
 
 # Logging
 functionLog = logging.getLogger(__name__)
 
 # Ensure Flusim imports work properly when called outside of toolbox
 sys.path.append(
-    os.path.join(os.getcwd(), simLocation, os.path.dirname(toolboxLocation))
+    os.path.join(os.getcwd(), SIMULATOR_LOCATION, os.path.dirname(TOOLBOX_LOCATION))
 )
 
 from analysis.AnalysisStat import AnalysisStat
@@ -114,7 +114,7 @@ async def runSimulation(
     # simulation and analysis are complete
     simFiles = {
         os.path.join(
-            simLocation,
+            SIMULATOR_LOCATION,
             "results",
             (
                 (
@@ -186,7 +186,7 @@ def epidemicFileName(options: Namespace, config: ToolboxConfiguration) -> str:
 def epidemic(
     sim: TaskData,
     fileID: Optional[str],
-    communityName: str,
+    communityName: CommunityName,
     summaryStat=None,
     cumulative=False,
     byAge=False,
@@ -260,7 +260,9 @@ def epidemic(
     )
     # Log files preemptively in case of cancellation
     filename = os.path.join(
-        simLocation, "post-analysis", epidemicFileName(epidemicArgs, toolboxConfig)
+        SIMULATOR_LOCATION,
+        "post-analysis",
+        epidemicFileName(epidemicArgs, toolboxConfig),
     )
     sim.files |= {filename}
 
@@ -285,7 +287,7 @@ def epidemic(
 def asir(
     sim: TaskData,
     fileID: Optional[str],
-    communityName: str,
+    communityName: CommunityName,
     joint: Optional[str],
     summaryStat=None,
     getProportion=False,
@@ -343,9 +345,9 @@ def asir(
 
     # Log files preemptively in case of cancellation
     fileStem = f"{communityName}{joint}{fileID}-asir-{summaryStat}"
-    oldFilename = os.path.join(simLocation, "post-analysis", f"{fileStem}.csv")
+    oldFilename = os.path.join(SIMULATOR_LOCATION, "post-analysis", f"{fileStem}.csv")
     newFilename = os.path.join(
-        simLocation,
+        SIMULATOR_LOCATION,
         "post-analysis",
         f"{fileStem}{'-proportion' if getProportion else '-discrete'}"
         f"{'-indigenousOnly' if onlyIndigenous else '-allDemographics'}"
