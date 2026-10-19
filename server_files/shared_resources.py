@@ -7,7 +7,7 @@ import logging
 import os
 from datetime import datetime
 
-from ServerFiles.Types import TaskData
+from server_files.types import TaskData
 
 # Logging
 shared_log = logging.getLogger(__name__)

@@ -7,9 +7,9 @@ import re
 from argparse import Namespace
 from datetime import datetime
 
-from ServerFiles.ModelSchema import CommunityOverride, OverrideTemplate
-from ServerFiles.SharedResources import display_time
-from ServerFiles.Types import CommunityName, TaskData
+from server_files.model_schema import CommunityOverride, OverrideTemplate
+from server_files.shared_resources import display_time
+from server_files.types import CommunityName, TaskData
 
 
 def generate_calibration_config(
@@ -95,7 +95,7 @@ async def run_calibration(
     from logger import LogLevel
     from ToolboxConfiguration import ToolboxConfiguration
 
-    from ServerFiles.ToolboxOverrides import R0CalibrationWithTask
+    from server_files.toolbox_overrides import R0CalibrationWithTask
 
     run_start_time = datetime.now()
     toolbox_config = ToolboxConfiguration(toolbox_path)
@@ -159,7 +159,7 @@ async def run_calculation(
     from logger import LogLevel
     from ToolboxConfiguration import ToolboxConfiguration
 
-    from ServerFiles.ToolboxOverrides import R0CalculationWithTask
+    from server_files.toolbox_overrides import R0CalculationWithTask
 
     run_start_time = datetime.now()
     toolbox_config = ToolboxConfiguration(toolbox_path)

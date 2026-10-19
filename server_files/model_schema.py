@@ -18,7 +18,7 @@ from pydantic import (
     model_validator,
 )
 
-from ServerFiles.Types import (
+from server_files.types import (
     AgeGroupKey,
     CommunityPatch,
     CommunityName,

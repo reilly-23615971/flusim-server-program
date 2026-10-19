@@ -24,27 +24,31 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-from ServerFiles.ModelSchema import CommunityOverride, ModelGuideFile, OverrideTemplate
-from ServerFiles.R0Functions import (
+from server_files.model_schema import (
+    CommunityOverride,
+    ModelGuideFile,
+    OverrideTemplate,
+)
+from server_files.r0_calibration import (
     generate_calibration_config,
     run_calculation,
     run_calibration,
 )
-from ServerFiles.SharedResources import (
+from server_files.shared_resources import (
     DELETE_GENERATED_FILES,
     EXECUTABLE_LOCATION,
     TOOLBOX_LOCATION,
     clear_files,
     update_status,
 )
-from ServerFiles.SimulationFunctions import (
+from server_files.simulation import (
     asir,
     display_time,
     epidemic,
     generate_toolbox_config,
     run_simulation,
 )
-from ServerFiles.Types import COMMUNITY_NAMES, TaskData, active_tasks
+from server_files.types import COMMUNITY_NAMES, TaskData, active_tasks
 
 
 @asynccontextmanager
