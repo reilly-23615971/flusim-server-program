@@ -184,7 +184,7 @@ async def stop_task_route(task_id: str, cleanup: BackgroundTasks):
 
 
 # Running simulation experiments
-async def run_model(task_id: str, config: ModelGuideFile):
+async def run_model(task_id: str, parameter_config: ModelGuideFile):
     """
     Async function to run a simulation experiment based on parameters
     from the dashboard, then zip the analysed statistics.
@@ -192,9 +192,10 @@ async def run_model(task_id: str, config: ModelGuideFile):
     Parameters:
         task_id (str): The ID distinguishing this simulation task.
 
-        config (ModelGuideFile): The parameters and other settings that
-            will define the simulation experiment.
+        parameter_config (ModelGuideFile): The parameters and other settings
+            that will define the simulation experiment.
     """
+
     try:
         # Wait 1 second for the websocket to connect
         await asyncio.sleep(1)
@@ -204,22 +205,21 @@ async def run_model(task_id: str, config: ModelGuideFile):
         task_data = active_tasks.get(task_id)
         if task_data is None:
             raise ValueError("The simulation with the requested ID could not be found")
-        file_id = config.description
-        community = config.community_used[0]
-        middle_joint = config.middle_joint
-        print(f"Simulation received; name = {config.name}, ID = {task_id}")
+        file_id = parameter_config.description
+        community = parameter_config.community_used[0]
+        middle_joint = parameter_config.middle_joint
+        print(f"Simulation received; name = {parameter_config.name}, ID = {task_id}")
 
         # Log the files that will be created over the course of the simulation
         task_data.files = set()
         analysis_files = []
 
-        # Generate toolbox config file
+        # Generate toolbox config
         await update_status(task_data, "generating_config")
-        toolbox_path = generate_toolbox_config(task_data, file_id, middle_joint)
-        print(f"Toolbox file located at {toolbox_path}")
+        toolbox_config = generate_toolbox_config(middle_joint)
 
         # Run the Flusim simulation experiment
-        await run_simulation(task_data, file_id, config, toolbox_path)
+        await run_simulation(task_data, file_id, parameter_config, toolbox_config)
 
         # TODO: Use middle joint to determine analyses to run
         # (or find a way to send the data forms to the server directly)
@@ -233,8 +233,8 @@ async def run_model(task_id: str, config: ModelGuideFile):
             task_data,
             file_id,
             community,
+            toolbox_config=toolbox_config,
             cumulative=True,
-            toolbox_path=toolbox_path,
         )
 
         # Cumulative infection epidemic curve
@@ -244,8 +244,8 @@ async def run_model(task_id: str, config: ModelGuideFile):
             task_data,
             file_id,
             community,
+            toolbox_config=toolbox_config,
             cumulative=False,
-            toolbox_path=toolbox_path,
         )
 
         # Age-separated infection rates
@@ -255,8 +255,7 @@ async def run_model(task_id: str, config: ModelGuideFile):
             task_data,
             file_id,
             community,
-            middle_joint,
-            toolbox_path=toolbox_path,
+            toolbox_config=toolbox_config,
         )
 
         # Vaccinated age-separated infection rates
@@ -267,9 +266,8 @@ async def run_model(task_id: str, config: ModelGuideFile):
                 task_data,
                 file_id,
                 community,
-                middle_joint,
+                toolbox_config=toolbox_config,
                 vaccinated_only=True,
-                toolbox_path=toolbox_path,
             )
 
         # If all else fails and no analyses were specified, run epidemic
@@ -280,7 +278,7 @@ async def run_model(task_id: str, config: ModelGuideFile):
                 task_data,
                 file_id,
                 community,
-                toolbox_path=toolbox_path,
+                toolbox_config=toolbox_config,
             )
 
         print("\nAnalysis files:")
@@ -313,14 +311,14 @@ async def run_model(task_id: str, config: ModelGuideFile):
 # TODO: run_model_task might sometimes become its own child and cause
 # recursion errors when cancelling it? Investigate
 @flusim_server_app.post("/run_model", status_code=202)
-async def run_model_route(config: ModelGuideFile) -> dict[str, str]:
+async def run_model_route(parameter_config: ModelGuideFile) -> dict[str, str]:
     """
     Async route function to begin a simulation experiment and give the
     dashboard an ID to poll for status updates.
 
     Parameters:
-        config (ModelGuideFile): The parameters and other settings that
-            will define the simulation experiment.
+        parameter_config (ModelGuideFile): The parameters and other settings
+            that will define the simulation experiment.
 
     Returns:
         dict: A dictionary containing the ID assigned to this particular
@@ -328,11 +326,12 @@ async def run_model_route(config: ModelGuideFile) -> dict[str, str]:
             directly as an int to ensure corrupted data is not read by the
             dashboard client.
     """
+
     # TODO: Make task_id a cookie if it helps with reload preservation
     task_id = str(uuid.uuid4())
     active_tasks[task_id] = TaskData(task_id)
 
-    run_model_task = asyncio.create_task(run_model(task_id, config))
+    run_model_task = asyncio.create_task(run_model(task_id, parameter_config))
 
     active_tasks[task_id].tasks.add(run_model_task)
 
@@ -405,7 +404,7 @@ async def calibrate_r0(task_id: str, params: OverrideTemplate):
         if task_data is None:
             raise ValueError("The task with the requested ID could not be found")
         community = params.name
-        assert community in COMMUNITY_NAMES
+        assert community in COMMUNITY_NAMES, "Invalid community for r0 calibration"
         if params.description is None:
             raise ValueError("No target r0 was provided")
         r0 = float(params.description)
@@ -415,18 +414,15 @@ async def calibrate_r0(task_id: str, params: OverrideTemplate):
         task_data.files = set()
 
         # Generate config files
-        await update_status(task_data, "generatingToolbox")
-        toolbox_path = generate_toolbox_config(task_data, "500", "-r0Calibration")
+        await update_status(task_data, "generating_toolbox")
+        toolbox_config = generate_toolbox_config("-r0Calibration")
         await update_status(task_data, "generating_config")
         parameter_path = generate_calibration_config(task_data, params)
-        print(
-            f"Toolbox file located at {toolbox_path}; "
-            f"parameters located at {parameter_path}"
-        )
+        print(f"Parameters located at {parameter_path}")
 
         # Run the Flusim simulation
         r0, interval, beta = await run_calibration(
-            r0, community, parameter_path, toolbox_path
+            r0, community, parameter_path, toolbox_config
         )
         print(
             f"Estimated beta: {beta} (achieves {r0} "
@@ -534,17 +530,14 @@ async def calculate_r0(task_id: str, params: CommunityOverride):
         task_data.files = set()
 
         # Generate config files
-        await update_status(task_data, "generatingToolbox")
-        toolbox_path = generate_toolbox_config(task_data, "1000", "-r0_calculation")
+        await update_status(task_data, "generating_toolbox")
+        toolbox_config = generate_toolbox_config("-r0_calculation")
         await update_status(task_data, "generating_config")
         parameter_path = generate_calibration_config(task_data, params)
-        print(
-            f"Toolbox file located at {toolbox_path}; "
-            f"parameters located at {parameter_path}"
-        )
+        print(f"parameters located at {parameter_path}")
 
         # Run the Flusim simulation
-        r0, interval = await run_calculation(community, parameter_path, toolbox_path)
+        r0, interval = await run_calculation(community, parameter_path, toolbox_config)
         print(f"Estimated R0: {r0} with CI of [{interval[0]}, {interval[1]}]")
 
         task_data.results = {"r0": r0, "interval": interval}

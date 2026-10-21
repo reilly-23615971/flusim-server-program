@@ -7,6 +7,8 @@ import re
 from argparse import Namespace
 from datetime import datetime
 
+from ToolboxConfiguration import ToolboxConfiguration
+
 from server_files.model_schema import CommunityOverride, OverrideTemplate
 from server_files.shared_resources import display_time
 from server_files.types import CommunityName, TaskData
@@ -71,7 +73,10 @@ def generate_calibration_config(
 
 
 async def run_calibration(
-    r0: float, community_name: CommunityName, config_path: str, toolbox_path: str
+    r0: float,
+    community_name: CommunityName,
+    config_path: str,
+    toolbox_config: ToolboxConfiguration,
 ):
     """
     Function to determine what value of beta is needed to achieve the desired
@@ -87,20 +92,19 @@ async def run_calibration(
         config_path (str): The path to the file containing the parameters to
             estimate r0 for.
 
-        toolbox_path (str): The path to the file containing settings for the
-            toolbox commands.
+        toolbox_config (ToolboxConfiguration): The object containing settings
+            for the toolbox commands.
     """
 
     # from commands.Run.RunCommand import RunCommand
     from logger import LogLevel
-    from ToolboxConfiguration import ToolboxConfiguration
 
     from server_files.toolbox_overrides import R0CalibrationWithTask
 
     run_start_time = datetime.now()
-    toolbox_config = ToolboxConfiguration(toolbox_path)
 
     # Calculate R0
+    # TODO: Better status logging (can you send over the current candidate R0?)
     command_output = await R0CalibrationWithTask().run_command_async(
         Namespace(
             community=community_name,
@@ -139,7 +143,9 @@ async def run_calibration(
 
 
 async def run_calculation(
-    community_name: CommunityName, config_path: str, toolbox_path: str
+    community_name: CommunityName,
+    config_path: str,
+    toolbox_config: ToolboxConfiguration,
 ):
     """
     Function to use the provided config parameters to estimate the basic
@@ -151,18 +157,16 @@ async def run_calculation(
         config_path (str): The path to the file containing the parameters to
             estimate r0 for.
 
-        toolbox_path (str): The path to the file containing settings for the
-            toolbox commands.
+        toolbox_config (ToolboxConfiguration): The object containing settings
+            for the toolbox commands.
     """
 
     # from commands.Run.RunCommand import RunCommand
     from logger import LogLevel
-    from ToolboxConfiguration import ToolboxConfiguration
 
     from server_files.toolbox_overrides import R0CalculationWithTask
 
     run_start_time = datetime.now()
-    toolbox_config = ToolboxConfiguration(toolbox_path)
 
     # Calculate R0
     command_output = await R0CalculationWithTask().run_command_async(
