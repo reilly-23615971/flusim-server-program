@@ -8,6 +8,7 @@
 import asyncio
 import logging
 import os
+import sys
 import uuid
 import zipfile
 from contextlib import asynccontextmanager
@@ -24,6 +25,17 @@ from fastapi import (
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
+from server_files.shared_resources import (
+    DELETE_GENERATED_FILES,
+    EXECUTABLE_LOCATION,
+    SIMULATOR_LOCATION,
+    TOOLBOX_LOCATION,
+    clear_files,
+    update_status,
+)
+
+# Ensure Flusim imports work properly when called outside of toolbox
+sys.path.append(os.path.join(os.getcwd(), SIMULATOR_LOCATION, "src/toolbox"))
 from server_files.model_schema import (
     CommunityOverride,
     ModelGuideFile,
@@ -33,13 +45,6 @@ from server_files.r0_calibration import (
     generate_calibration_config,
     run_calculation,
     run_calibration,
-)
-from server_files.shared_resources import (
-    DELETE_GENERATED_FILES,
-    EXECUTABLE_LOCATION,
-    TOOLBOX_LOCATION,
-    clear_files,
-    update_status,
 )
 from server_files.simulation import (
     asir,

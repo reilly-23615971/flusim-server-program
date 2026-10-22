@@ -7,16 +7,12 @@ import asyncio
 import datetime
 import logging
 import os
-import sys
 import time
 from argparse import ArgumentParser, Namespace
 from typing import Optional
 
-from server_files.shared_resources import SIMULATOR_LOCATION, update_status
+from server_files.shared_resources import update_status
 from server_files.types import TaskData
-
-# Ensure Flusim imports work properly when called outside of toolbox
-sys.path.append(os.path.join(os.getcwd(), SIMULATOR_LOCATION, "src/toolbox"))
 
 # Logging
 override_log = logging.getLogger(__name__)
