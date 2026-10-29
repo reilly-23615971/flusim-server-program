@@ -7,6 +7,7 @@ import os
 from argparse import Namespace
 from datetime import datetime
 from typing import Optional
+from tempfile import NamedTemporaryFile
 
 import pandas as pd
 from analysis.AnalysisStat import AnalysisStat
@@ -78,11 +79,10 @@ async def run_simulation(
     from server_files.toolbox_overrides import RunCommandWithTask
 
     run_start_time = datetime.now()
-    guide_path = f"temp_files/flusim-{file_id}.guide.json"
 
     # Get list of sim files so they can be deleted once the
     # simulation and analysis are complete
-    simulation_files = {
+    sim.files |= {
         os.path.join(
             SIMULATOR_LOCATION,
             "results",
@@ -96,20 +96,22 @@ async def run_simulation(
         for i in range(len(parameter_data.simulation_sets[0].simulations))
     }
 
-    # Log files preemptively in case of cancellation
-    sim.files |= simulation_files | {guide_path}
+    with NamedTemporaryFile(suffix=".json", delete_on_close=False) as guide_file:
+        # Save parameters to tempfile
+        guide_file.write(
+            parameter_data.model_dump_json(indent=2, exclude_unset=True).encode()
+        )
+        guide_file.close()
+        print(f"Parameters located at {guide_file.name}")
 
-    with open(guide_path, "w") as file:
-        file.write(parameter_data.model_dump_json(indent=2, exclude_unset=True))
-
-    # Run the simulation
-    await RunCommandWithTask(sim=sim).run_command_async(
-        Namespace(guide=guide_path, log_level=LogLevel.DEBUG), toolbox_config
-    )
-    print(
-        "[run_simulation] Finished running the simulation experiment "
-        f"in {display_time(run_start_time)}\n"
-    )
+        # Run the simulation
+        await RunCommandWithTask(sim=sim).run_command_async(
+            Namespace(guide=guide_file.name, log_level=LogLevel.DEBUG), toolbox_config
+        )
+        print(
+            "[run_simulation] Finished running the simulation experiment "
+            f"in {display_time(run_start_time)}\n"
+        )
 
 
 def epidemic_filename(options: Namespace, config: ToolboxConfiguration) -> str:

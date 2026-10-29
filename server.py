@@ -13,6 +13,7 @@ import uuid
 import zipfile
 from contextlib import asynccontextmanager
 from datetime import datetime
+from tempfile import TemporaryDirectory
 
 from fastapi import (
     BackgroundTasks,
@@ -41,11 +42,7 @@ from server_files.model_schema import (
     ModelGuideFile,
     OverrideTemplate,
 )
-from server_files.r0_calibration import (
-    generate_calibration_config,
-    run_calculation,
-    run_calibration,
-)
+from server_files.r0_calibration import run_calculation, run_calibration
 from server_files.simulation import (
     asir,
     display_time,
@@ -72,9 +69,8 @@ async def lifespan(app: FastAPI):
 
 # Logging config
 # TODO: Try to fix the logging loop again without --no-reload
-os.makedirs("temp_files", exist_ok=True)
 logging.basicConfig(
-    filename="temp_files/server-app-logs.txt",
+    filename="server-app-logs.txt",
     filemode="a",
     format="%(asctime)s,%(msecs)03d %(name)s %(levelname)s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
@@ -290,15 +286,7 @@ async def run_model(task_id: str, parameter_config: ModelGuideFile):
         for file in analysis_files:
             print("   ", file)
 
-        # Zip together the analysis files
-        await update_status(task_data, "zipping_analysis")
-        zip_path = f"temp_files/analysis_files_{file_id}_.zip"
-        task_data.files.add(zip_path)
-        with zipfile.ZipFile(zip_path, mode="w") as analysis:
-            for file in analysis_files:
-                analysis.write(file)
-
-        task_data.results = zip_path
+        task_data.results = analysis_files
 
         print(
             f"\nSimulation request for session {file_id} complete in "
@@ -369,9 +357,9 @@ async def download_simulation_results(task_id: str, cleanup: BackgroundTasks):
     if current_status != "completed":
         raise HTTPException(503, "The requested simulation is still ongoing")
 
-    file_path = task_data.results
+    result_paths = task_data.results
 
-    if not file_path or not os.path.exists(file_path):
+    if not result_paths or not all(os.path.exists(file) for file in result_paths):
         raise HTTPException(
             404,
             """
@@ -379,9 +367,17 @@ The analysis results for the simulation with the requested ID could not be found
             """,
         )
 
-    cleanup.add_task(close_task, task_id)
+    # Zip together the analysis files
+    temp_dir = TemporaryDirectory(delete=False)
+    zip_path = os.path.join(temp_dir.name, f"analysis_files_{task_data.task_id}_.zip")
+    with zipfile.ZipFile(zip_path, mode="w") as analysis:
+        for file in result_paths:
+            analysis.write(file)
 
-    return FileResponse(file_path, filename=os.path.basename(file_path))
+    cleanup.add_task(close_task, task_id)
+    cleanup.add_task(temp_dir.cleanup)
+
+    return FileResponse(zip_path, filename=os.path.basename(zip_path))
 
 
 # R0 analysis
@@ -422,12 +418,10 @@ async def calibrate_r0(task_id: str, params: OverrideTemplate):
         await update_status(task_data, "generating_toolbox")
         toolbox_config = generate_toolbox_config("-r0Calibration")
         await update_status(task_data, "generating_config")
-        parameter_path = generate_calibration_config(task_data, params)
-        print(f"Parameters located at {parameter_path}")
 
         # Run the Flusim simulation
         r0, interval, beta = await run_calibration(
-            r0, community, parameter_path, toolbox_config
+            r0, community, params, toolbox_config
         )
         print(
             f"Estimated beta: {beta} (achieves {r0} "
@@ -538,11 +532,9 @@ async def calculate_r0(task_id: str, params: CommunityOverride):
         await update_status(task_data, "generating_toolbox")
         toolbox_config = generate_toolbox_config("-r0_calculation")
         await update_status(task_data, "generating_config")
-        parameter_path = generate_calibration_config(task_data, params)
-        print(f"parameters located at {parameter_path}")
 
         # Run the Flusim simulation
-        r0, interval = await run_calculation(community, parameter_path, toolbox_config)
+        r0, interval = await run_calculation(community, params, toolbox_config)
         print(f"Estimated R0: {r0} with CI of [{interval[0]}, {interval[1]}]")
 
         task_data.results = {"r0": r0, "interval": interval}

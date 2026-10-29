@@ -6,76 +6,19 @@
 import re
 from argparse import Namespace
 from datetime import datetime
+from tempfile import NamedTemporaryFile
 
 from ToolboxConfiguration import ToolboxConfiguration
 
 from server_files.model_schema import CommunityOverride, OverrideTemplate
-from server_files.shared_resources import display_time
-from server_files.types import CommunityName, TaskData
-
-
-def generate_calibration_config(
-    task: TaskData, params: CommunityOverride | OverrideTemplate
-) -> str:
-    """
-    Function to generate the required parameter config file for r0 calibration
-
-    Parameters:
-        task (TaskData): The object containing the data used for this task.
-
-        params (CommunityOverride or OverrideTemplate): The parameters to
-            save to the config.
-
-    Returns:
-        str: The file path for the newly created configuration file.
-    """
-    # Log filename preemptively in case of cancellation
-    calibration_config_path = f"temp_files/r0_config_{task.task_id}.json"
-    task.files.add(calibration_config_path)
-    print(
-        "[generate_calibration_config] Generating r0 "
-        f"configuration file {calibration_config_path}"
-    )
-
-    # Exclude unused parameters
-    excluded_params = {
-        "parameters": {
-            "Scenario_Parameter": {
-                "start_day_of_week",
-                "kappa_adult_education",
-                "kappa_child_care",
-                "kappa_hospital",
-                "withdrawal_period",
-                "hospitalisation_rate",
-                "max_adult_class_size",
-                "max_neighbourgroup_size",
-                "max_churchgroup_size",
-                "max_class_count",
-                "pandemic_alert",
-                "close_childcare",
-                "close_child_education",
-                "close_adult_education",
-                "prob_work_nonattendance",
-                "work_nonattendance_trigger",
-                "work_nonattendance_relaxation",
-                "work_nonattendance_delay",
-                "work_nonattendance_duration",
-                "vaccination_priority",
-                "withdrawal_period",
-            },
-        }
-    }
-    with open(calibration_config_path, "w") as file:
-        file.write(
-            params.model_dump_json(indent=2, exclude_none=True, exclude=excluded_params)
-        )
-    return calibration_config_path
+from server_files.shared_resources import EXCLUDED_PARAMS, display_time
+from server_files.types import CommunityName
 
 
 async def run_calibration(
     r0: float,
     community_name: CommunityName,
-    config_path: str,
+    params: CommunityOverride | OverrideTemplate,
     toolbox_config: ToolboxConfiguration,
 ):
     """
@@ -89,8 +32,8 @@ async def run_calibration(
 
         community_name (str): The name of the community being simulated (e.g. Newcastle).
 
-        config_path (str): The path to the file containing the parameters to
-            estimate r0 for.
+        params (CommunityOverride or OverrideTemplate): The parameters to
+            use for the calibrating simulations.
 
         toolbox_config (ToolboxConfiguration): The object containing settings
             for the toolbox commands.
@@ -103,20 +46,35 @@ async def run_calibration(
 
     run_start_time = datetime.now()
 
-    # Calculate R0
-    # TODO: Better status logging (can you send over the current candidate R0?)
-    command_output = await R0CalibrationWithTask().run_command_async(
-        Namespace(
-            community=community_name,
-            scenario=config_path,
-            use_baseline=True,
-            sample_size=2000,
-            target_r0=r0,
-            max_r0_diff=0.005,
-            log_level=LogLevel.WARNING,
-        ),
-        config=toolbox_config,
-    )
+    with NamedTemporaryFile(suffix=".json", delete_on_close=False) as params_file:
+        # Save parameters to tempfile
+        params_file.write(
+            params.model_dump_json(
+                indent=2,
+                exclude_none=True,
+                exclude={
+                    "parameters": {
+                        "Scenario_Parameter": EXCLUDED_PARAMS,
+                    }
+                },
+            ).encode()
+        )
+        params_file.close()
+        print(f"Parameters located at {params_file.name}")
+        # Calibrate R0
+        # TODO: Better status logging (can you send over the current candidate R0?)
+        command_output = await R0CalibrationWithTask().run_command_async(
+            Namespace(
+                community=community_name,
+                scenario=params_file.name,
+                use_baseline=True,
+                sample_size=2000,
+                target_r0=r0,
+                max_r0_diff=0.005,
+                log_level=LogLevel.WARNING,
+            ),
+            config=toolbox_config,
+        )
     if command_output is not None:
         results = command_output[-2]
         result_matches = re.search(
@@ -144,7 +102,7 @@ async def run_calibration(
 
 async def run_calculation(
     community_name: CommunityName,
-    config_path: str,
+    params: CommunityOverride | OverrideTemplate,
     toolbox_config: ToolboxConfiguration,
 ):
     """
@@ -154,8 +112,8 @@ async def run_calculation(
     Parameters:
         community_name (str): The name of the community being simulated (e.g. Newcastle).
 
-        config_path (str): The path to the file containing the parameters to
-            estimate r0 for.
+        params (CommunityOverride or OverrideTemplate): The parameters to
+            use for the calculating simulations.
 
         toolbox_config (ToolboxConfiguration): The object containing settings
             for the toolbox commands.
@@ -168,17 +126,32 @@ async def run_calculation(
 
     run_start_time = datetime.now()
 
-    # Calculate R0
-    command_output = await R0CalculationWithTask().run_command_async(
-        Namespace(
-            community=community_name,
-            scenario=config_path,
-            use_baseline=True,
-            sample_size=2000,
-            log_level=LogLevel.DEBUG,
-        ),
-        config=toolbox_config,
-    )
+    with NamedTemporaryFile(suffix=".json", delete_on_close=False) as params_file:
+        # Save parameters to tempfile
+        params_file.write(
+            params.model_dump_json(
+                indent=2,
+                exclude_none=True,
+                exclude={
+                    "parameters": {
+                        "Scenario_Parameter": EXCLUDED_PARAMS,
+                    }
+                },
+            ).encode()
+        )
+        params_file.close()
+        print(f"Parameters located at {params_file.name}")
+        # Calculate R0
+        command_output = await R0CalculationWithTask().run_command_async(
+            Namespace(
+                community=community_name,
+                scenario=params_file.name,
+                use_baseline=True,
+                sample_size=2000,
+                log_level=LogLevel.DEBUG,
+            ),
+            config=toolbox_config,
+        )
     if command_output is not None:
         results = command_output[-1]
         result_matches = re.search(

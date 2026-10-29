@@ -24,6 +24,7 @@ from server_files.types import (
     CommunityName,
     COMMUNITIES,
 )
+from server_files.shared_resources import EXCLUDED_PARAMS
 
 # Logging
 validation_log = logging.getLogger(__name__)
@@ -2144,29 +2145,7 @@ community in `community_used`.
         excluded_params = {
             "parameters": {
                 "Dashboard_Parameter": {"show_advanced_parameters"},
-                "Scenario_Parameter": {
-                    "start_day_of_week",
-                    "kappa_adult_education",
-                    "kappa_child_care",
-                    "kappa_hospital",
-                    "withdrawal_period",
-                    "hospitalisation_rate",
-                    "max_adult_class_size",
-                    "max_neighbourgroup_size",
-                    "max_churchgroup_size",
-                    "max_class_count",
-                    "pandemic_alert",
-                    "close_childcare",
-                    "close_child_education",
-                    "close_adult_education",
-                    "prob_work_nonattendance",
-                    "work_nonattendance_trigger",
-                    "work_nonattendance_relaxation",
-                    "work_nonattendance_delay",
-                    "work_nonattendance_duration",
-                    "vaccination_priority",
-                    "withdrawal_period",
-                },
+                "Scenario_Parameter": EXCLUDED_PARAMS | {"start_day_of_week"},
             }
         }
         return value.model_dump(exclude_none=True, exclude=excluded_params)

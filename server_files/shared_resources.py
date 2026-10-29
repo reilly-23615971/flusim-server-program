@@ -22,6 +22,30 @@ SIMULATOR_LOCATION = ""
 EXECUTABLE_LOCATION = "src/simulator/build/src/simulator"
 TOOLBOX_LOCATION = "src/toolbox/toolbox.py"
 
+# Remove any parameters that get added to the dashboard
+EXCLUDED_PARAMS = {
+    "kappa_adult_education",
+    "kappa_child_care",
+    "kappa_hospital",
+    "withdrawal_period",
+    "hospitalisation_rate",
+    "max_adult_class_size",
+    "max_neighbourgroup_size",
+    "max_churchgroup_size",
+    "max_class_count",
+    "pandemic_alert",
+    "close_childcare",
+    "close_child_education",
+    "close_adult_education",
+    "prob_work_nonattendance",
+    "work_nonattendance_trigger",
+    "work_nonattendance_relaxation",
+    "work_nonattendance_delay",
+    "work_nonattendance_duration",
+    "vaccination_priority",
+    "withdrawal_period",
+}
+
 
 def clear_files(files: set[str]):
     """
