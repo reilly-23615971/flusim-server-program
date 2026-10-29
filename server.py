@@ -72,9 +72,9 @@ async def lifespan(app: FastAPI):
 
 # Logging config
 # TODO: Try to fix the logging loop again without --no-reload
-os.makedirs("temp-files", exist_ok=True)
+os.makedirs("temp_files", exist_ok=True)
 logging.basicConfig(
-    filename="temp-files/server-app-logs.txt",
+    filename="temp_files/server-app-logs.txt",
     filemode="a",
     format="%(asctime)s,%(msecs)03d %(name)s %(levelname)s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
@@ -292,7 +292,7 @@ async def run_model(task_id: str, parameter_config: ModelGuideFile):
 
         # Zip together the analysis files
         await update_status(task_data, "zipping_analysis")
-        zip_path = f"temp-files/analysis_files_{file_id}_.zip"
+        zip_path = f"temp_files/analysis_files_{file_id}_.zip"
         task_data.files.add(zip_path)
         with zipfile.ZipFile(zip_path, mode="w") as analysis:
             for file in analysis_files:

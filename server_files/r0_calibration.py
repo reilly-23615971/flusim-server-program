@@ -30,7 +30,7 @@ def generate_calibration_config(
         str: The file path for the newly created configuration file.
     """
     # Log filename preemptively in case of cancellation
-    calibration_config_path = f"temp-files/r0_config_{task.task_id}.json"
+    calibration_config_path = f"temp_files/r0_config_{task.task_id}.json"
     task.files.add(calibration_config_path)
     print(
         "[generate_calibration_config] Generating r0 "

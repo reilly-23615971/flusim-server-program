@@ -78,7 +78,7 @@ async def run_simulation(
     from server_files.toolbox_overrides import RunCommandWithTask
 
     run_start_time = datetime.now()
-    guide_path = f"temp-files/flusim-{file_id}.guide.json"
+    guide_path = f"temp_files/flusim-{file_id}.guide.json"
 
     # Get list of sim files so they can be deleted once the
     # simulation and analysis are complete

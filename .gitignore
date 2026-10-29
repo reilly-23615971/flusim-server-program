@@ -5,5 +5,5 @@ __pycache__/*
 *Logs/*
 server-app-logs.txt
 smrg_flusim/*
-temp-files/*
+temp_files/*
 src/*
