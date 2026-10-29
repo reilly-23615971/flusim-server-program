@@ -43,7 +43,7 @@ type VaccinePriority = Literal["elderly", "healthcare", "essential_workers", "ot
 type Kappa = Annotated[float, Ge(0)]
 # The following 3 types are structurally identical, but are
 # distinguished for readability and documentation purposes
-type Proportion = Annotated[float, Ge(0), Le(1)]
+type ProportionValue = Annotated[float, Ge(0), Le(1)]
 type Probability = Annotated[float, Ge(0), Le(1)]
 type EfficacyValue = Annotated[float, Ge(0), Le(1)]
 
@@ -1353,7 +1353,7 @@ The ID of an infection strain that individuals may additionally recover from
 when recovering from the initial strain.
         """,
     )
-    ImmunityProportion: Optional[Proportion] = Field(
+    ImmunityProportion: Optional[ProportionValue] = Field(
         title="Immunity Proportion",
         default=1.0,
         description="""
@@ -1425,7 +1425,7 @@ The age group which will have natural immunity seeded into it. If None, seeds
 immunity into all age groups.
         """,
     )
-    InitialProportion: Optional[Proportion] = Field(
+    InitialProportion: Optional[ProportionValue] = Field(
         title="Initial Proportion",
         default=0,
         description="""
@@ -1433,7 +1433,7 @@ The proportion of the population which will have natural immunity to the
 infection at the beginning of each simulation run (cycle 0).
         """,
     )
-    ProportionPerCycle: Optional[Proportion] = Field(
+    ProportionPerCycle: Optional[ProportionValue] = Field(
         title="Proportion Per Cycle",
         default=0,
         description="""
@@ -1441,7 +1441,7 @@ The proportion of the population which will gain natural immunity to the
 infection at each cycle.
         """,
     )
-    TargetProportion: Optional[Proportion] = Field(
+    TargetProportion: Optional[ProportionValue] = Field(
         title="Target Proportion",
         default=0,
         description="""
@@ -1485,7 +1485,7 @@ The age group these parameters apply to. If None, the parameters apply to all
 age groups.
         """,
     )
-    Initial: Optional[Proportion] = Field(
+    Initial: Optional[ProportionValue] = Field(
         title="Initial Vaccinated Proportion",
         default=0.0,
         description="""
@@ -1535,7 +1535,7 @@ The number of cycles before an individual who has received this vaccine dose
 will begin to lose their immunity to the pathogen.
         """,
     )
-    WaningRatePerCycle: Proportion = Field(
+    WaningRatePerCycle: ProportionValue = Field(
         title="Waning Rate per Cycle",
         description="""
 The proportion of vaccinated individuals who will lose their immunity to the
@@ -1618,6 +1618,35 @@ dose type is "booster".
             raise ValueError("Efficacy values had the wrong type") from e
 
 
+# Parameters for simulating demographics with differing susceptibility
+class CustomDemographic(BaseModel):
+    Name: str = Field(
+        title="Name",
+        description="The name of this demographic.",
+    )
+    Patch: CommunityPatch = Field(
+        title="Patch",
+        description="""
+The name used to refer to the simulation location this demographic is located in.
+        """,
+    )
+    Proportion: ProportionValue = Field(
+        title="Dose Spacing Cycles",
+        description="""
+The proportion of the population in the specified location that is part of this
+demographic.
+        """,
+    )
+    CoverageScale: float = Field(
+        title="Waning Delay",
+        ge=0,
+        description="""
+The vaccine coverage of individuals in this demographic will be multiplied by
+this value.
+        """,
+    )
+
+
 # Class for compiling all parameter types into one object
 class Parameters(BaseModel):
     Command_Argument: Optional[CommandArgument] = Field(
@@ -1657,6 +1686,13 @@ by the simulation.
         description="""
 Parameters controlling how an individual recovering from one infection strain
 can gain immunity to other infection strains.
+        """,
+    )
+    Scenario_CustomDemographic: Optional[list[CustomDemographic]] = Field(
+        title="Custom Demographic Parameters",
+        default=None,
+        description="""
+Parameters controlling demographics present within the simulated population.
         """,
     )
     Scenario_DynamicIntervention: Optional[list[DynamicIntervention]] = Field(
@@ -1724,6 +1760,7 @@ receives, and how often they are administered.
 
     @field_validator(
         "Scenario_CrossImmunity",
+        "Scenario_CustomDemographic",
         "Scenario_DynamicIntervention",
         "Scenario_Patch",
         "Scenario_SeededNaturalImmunity",
