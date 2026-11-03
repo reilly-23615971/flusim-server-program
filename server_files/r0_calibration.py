@@ -11,7 +11,11 @@ from tempfile import NamedTemporaryFile
 from ToolboxConfiguration import ToolboxConfiguration
 
 from server_files.model_schema import CommunityOverride, OverrideTemplate
-from server_files.shared_resources import EXCLUDED_PARAMS, display_time
+from server_files.shared_resources import (
+    DELETE_GENERATED_FILES,
+    EXCLUDED_PARAMS,
+    display_time,
+)
 from server_files.types import CommunityName
 
 
@@ -46,7 +50,9 @@ async def run_calibration(
 
     run_start_time = datetime.now()
 
-    with NamedTemporaryFile(suffix=".json", delete_on_close=False) as params_file:
+    with NamedTemporaryFile(
+        suffix=".json", delete=DELETE_GENERATED_FILES, delete_on_close=False
+    ) as params_file:
         # Save parameters to tempfile
         params_file.write(
             params.model_dump_json(
@@ -60,7 +66,8 @@ async def run_calibration(
             ).encode()
         )
         params_file.close()
-        print(f"Parameters located at {params_file.name}")
+        if not DELETE_GENERATED_FILES:
+            print(f"Parameters located at {params_file.name}")
         # Calibrate R0
         # TODO: Better status logging (can you send over the current candidate R0?)
         command_output = await R0CalibrationWithTask().run_command_async(
@@ -126,7 +133,9 @@ async def run_calculation(
 
     run_start_time = datetime.now()
 
-    with NamedTemporaryFile(suffix=".json", delete_on_close=False) as params_file:
+    with NamedTemporaryFile(
+        suffix=".json", delete=DELETE_GENERATED_FILES, delete_on_close=False
+    ) as params_file:
         # Save parameters to tempfile
         params_file.write(
             params.model_dump_json(
@@ -140,7 +149,8 @@ async def run_calculation(
             ).encode()
         )
         params_file.close()
-        print(f"Parameters located at {params_file.name}")
+        if not DELETE_GENERATED_FILES:
+            print(f"Parameters located at {params_file.name}")
         # Calculate R0
         command_output = await R0CalculationWithTask().run_command_async(
             Namespace(

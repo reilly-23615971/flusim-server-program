@@ -220,7 +220,7 @@ async def run_model(task_id: str, parameter_config: ModelGuideFile):
         toolbox_config = generate_toolbox_config(middle_joint)
 
         # Run the Flusim simulation experiment
-        await run_simulation(task_data, file_id, parameter_config, toolbox_config)
+        await run_simulation(task_data, parameter_config, toolbox_config)
 
         # TODO: Use middle joint to determine analyses to run
         # (or find a way to send the data forms to the server directly)
@@ -375,7 +375,10 @@ The analysis results for the simulation with the requested ID could not be found
             analysis.write(file)
 
     cleanup.add_task(close_task, task_id)
-    cleanup.add_task(temp_dir.cleanup)
+    if DELETE_GENERATED_FILES:
+        cleanup.add_task(temp_dir.cleanup)
+    else:
+        print("Zipped results can be found at the path", zip_path)
 
     return FileResponse(zip_path, filename=os.path.basename(zip_path))
 

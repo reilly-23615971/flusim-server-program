@@ -6,8 +6,8 @@
 import os
 from argparse import Namespace
 from datetime import datetime
-from typing import Optional
 from tempfile import NamedTemporaryFile
+from typing import Optional
 
 import pandas as pd
 from analysis.AnalysisStat import AnalysisStat
@@ -16,6 +16,7 @@ from ToolboxConfiguration import ToolboxConfiguration
 
 from server_files.model_schema import ModelGuideFile
 from server_files.shared_resources import (
+    DELETE_GENERATED_FILES,
     EXECUTABLE_LOCATION,
     SIMULATOR_LOCATION,
     display_time,
@@ -56,7 +57,6 @@ def generate_toolbox_config(joint: Optional[str]) -> ToolboxConfiguration:
 
 async def run_simulation(
     sim: TaskData,
-    file_id: Optional[str],
     parameter_data: ModelGuideFile,
     toolbox_config: ToolboxConfiguration,
 ):
@@ -65,9 +65,6 @@ async def run_simulation(
 
     Parameters:
         sim (TaskData): The object containing the data used for this simulation.
-
-        file_id (str): The numeric identifier for the files generated for this
-            simulation, stored as a string.
 
         parameter_data (ModelGuideFile): The parameters and other settings that
             will define the simulation experiment.
@@ -96,13 +93,16 @@ async def run_simulation(
         for i in range(len(parameter_data.simulation_sets[0].simulations))
     }
 
-    with NamedTemporaryFile(suffix=".json", delete_on_close=False) as guide_file:
+    with NamedTemporaryFile(
+        suffix=".json", delete=DELETE_GENERATED_FILES, delete_on_close=False
+    ) as guide_file:
         # Save parameters to tempfile
         guide_file.write(
             parameter_data.model_dump_json(indent=2, exclude_unset=True).encode()
         )
         guide_file.close()
-        print(f"Parameters located at {guide_file.name}")
+        if not DELETE_GENERATED_FILES:
+            print(f"Parameters located at {guide_file.name}")
 
         # Run the simulation
         await RunCommandWithTask(sim=sim).run_command_async(
