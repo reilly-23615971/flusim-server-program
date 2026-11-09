@@ -262,6 +262,27 @@ such that Sunday is 0, Monday is 1, etc.
         ge=0,
         description="The first cycle in which infection seeding should occur.",
     )
+    seed_by_patch: Optional[bool] = Field(
+        title="Seed Infections by Patch",
+        default=False,
+        description="""
+Toggles whether infection seeding should use the seeding weights defined in
+`Scenario_Patch` to make specific locations (a.k.a. patches) in the community
+more likely to be targeted.
+        """,
+    )
+    patch_weight_pop_scaling: Optional[bool] = Field(
+        title="Scale Patch Seeding Weights by Population",
+        default=False,
+        description="""
+Toggles whether infection seeding should multiply the seeding weights defined
+in `Scenario_Patch` by the population of each location (a.k.a. patch) in the
+simulation. This ensures that any two individuals in different patches with the
+same weight defined in `Scenario_Patch` will have the same likelihood of being
+targeted by infection seeding. Has no effect if `seed_by_patch` is set to
+False.
+        """,
+    )
 
     # Transmission Parameters
     beta_asymptomatic: Optional[float] = Field(
