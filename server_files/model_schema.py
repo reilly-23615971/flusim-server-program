@@ -1343,11 +1343,8 @@ class CommandArgument(BaseModel):
     n_runs: Optional[int] = Field(
         title="Number of Runs",
         default=24,
-        ge=15,
-        description="""
-The number of simulation runs to perform. Simulations will not run correctly
-if the number of runs is less than 15.
-        """,
+        ge=1,
+        description="The number of simulation runs to perform.",
     )
     n_cycles: Optional[int] = Field(
         title="Number of Cycles",
