@@ -51,7 +51,7 @@ async def run_calibration(
     run_start_time = datetime.now()
 
     with NamedTemporaryFile(
-        suffix=".json", delete=DELETE_GENERATED_FILES, delete_on_close=False
+        suffix=".parameters.json", delete=DELETE_GENERATED_FILES, delete_on_close=False
     ) as params_file:
         # Save parameters to tempfile
         params_file.write(
@@ -134,7 +134,7 @@ async def run_calculation(
     run_start_time = datetime.now()
 
     with NamedTemporaryFile(
-        suffix=".json", delete=DELETE_GENERATED_FILES, delete_on_close=False
+        suffix=".parameters.json", delete=DELETE_GENERATED_FILES, delete_on_close=False
     ) as params_file:
         # Save parameters to tempfile
         params_file.write(

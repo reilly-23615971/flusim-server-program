@@ -8,6 +8,7 @@
 import asyncio
 import logging
 import os
+from pathlib import Path
 import sys
 import uuid
 import zipfile
@@ -36,7 +37,7 @@ from server_files.shared_resources import (
 )
 
 # Ensure Flusim imports work properly when called outside of toolbox
-sys.path.append(os.path.join(os.getcwd(), SIMULATOR_LOCATION, "src/toolbox"))
+sys.path.append(str(os.getcwd() / SIMULATOR_LOCATION / TOOLBOX_LOCATION))
 from server_files.model_schema import (
     CommunityOverride,
     ModelGuideFile,
@@ -78,17 +79,17 @@ logging.basicConfig(
 )
 
 # Throw error if Flusim files aren't present
-if not os.path.isfile(TOOLBOX_LOCATION):
+if not (SIMULATOR_LOCATION / TOOLBOX_LOCATION).is_file():
     raise FileNotFoundError(f"""
 Flusim toolbox files not found. Ensure that this application is present in the
 same directory as the Flusim simulation files, such that the toolbox program is
-located at "{TOOLBOX_LOCATION}".
+located at "{SIMULATOR_LOCATION / TOOLBOX_LOCATION}".
     """)
-if not os.path.isfile(EXECUTABLE_LOCATION):
+if not (SIMULATOR_LOCATION / EXECUTABLE_LOCATION).is_file():
     raise FileNotFoundError(f"""
 Flusim simulation engine executable not found. Ensure that the executable has
 been built (see the Flusim documentation for more info) and is located at
-"{EXECUTABLE_LOCATION}".
+"{SIMULATOR_LOCATION / EXECUTABLE_LOCATION}".
     """)
 
 
@@ -213,7 +214,7 @@ async def run_model(task_id: str, parameter_config: ModelGuideFile):
 
         # Log the files that will be created over the course of the simulation
         task_data.files = set()
-        analysis_files = []
+        analysis_files: list[Path] = []
 
         # Generate toolbox config
         await update_status(task_data, "generating_config")
@@ -358,8 +359,11 @@ async def download_simulation_results(task_id: str, cleanup: BackgroundTasks):
         raise HTTPException(503, "The requested simulation is still ongoing")
 
     result_paths = task_data.results
+    assert result_paths is not None and isinstance(
+        result_paths, list
+    ), "Results were in the incorrect format"
 
-    if not result_paths or not all(os.path.exists(file) for file in result_paths):
+    if not result_paths or not all(file.is_file() for file in result_paths):
         raise HTTPException(
             404,
             """
@@ -369,7 +373,7 @@ The analysis results for the simulation with the requested ID could not be found
 
     # Zip together the analysis files
     temp_dir = TemporaryDirectory(delete=False)
-    zip_path = os.path.join(temp_dir.name, f"analysis_files_{task_data.task_id}_.zip")
+    zip_path = Path(temp_dir.name, f"analysis_files_{task_data.task_id}_.zip")
     with zipfile.ZipFile(zip_path, mode="w") as analysis:
         for file in result_paths:
             analysis.write(file)
@@ -380,7 +384,7 @@ The analysis results for the simulation with the requested ID could not be found
     else:
         print("Zipped results can be found at the path", zip_path)
 
-    return FileResponse(zip_path, filename=os.path.basename(zip_path))
+    return FileResponse(zip_path, filename=zip_path.name)
 
 
 # R0 analysis

@@ -7,6 +7,7 @@ import asyncio
 import logging
 from asyncio import Task
 from dataclasses import dataclass
+from pathlib import Path
 from subprocess import Popen
 from typing import Any, Literal, Optional, Sequence, get_args
 
@@ -200,8 +201,8 @@ class TaskData:
         self._tasks: set[Task] = set()
         self._process: Optional[Popen] = None
         self._status: str = "start"
-        self._files: set[str] = set()
-        self._results = None
+        self._files: set[Path] = set()
+        self._results: Optional[list[Path] | dict] = None
 
     @property
     def task_id(self):
@@ -262,7 +263,7 @@ class TaskData:
         return self._files
 
     @files.setter
-    def files(self, value: set[str]):
+    def files(self, value: set[Path]):
         self._files = value
 
     @property

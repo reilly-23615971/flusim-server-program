@@ -6,6 +6,7 @@
 import os
 from argparse import Namespace
 from datetime import datetime
+from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Optional
 
@@ -80,21 +81,19 @@ async def run_simulation(
     # Get list of sim files so they can be deleted once the
     # simulation and analysis are complete
     sim.files |= {
-        os.path.join(
-            SIMULATOR_LOCATION,
-            "results",
+        SIMULATOR_LOCATION
+        / "results"
+        / (
             (
-                (
-                    f"{parameter_data.community_used[0]}{parameter_data.middle_joint}"
-                    f"{parameter_data.simulation_sets[0].version}-{i:02}.sqlite"
-                )
-            ),
+                f"{parameter_data.community_used[0]}{parameter_data.middle_joint}"
+                f"{parameter_data.simulation_sets[0].version}-{i:02}.sqlite"
+            )
         )
         for i in range(len(parameter_data.simulation_sets[0].simulations))
     }
 
     with NamedTemporaryFile(
-        suffix=".json", delete=DELETE_GENERATED_FILES, delete_on_close=False
+        suffix=".guide.json", delete=DELETE_GENERATED_FILES, delete_on_close=False
     ) as guide_file:
         # Save parameters to tempfile
         guide_file.write(
@@ -163,7 +162,7 @@ def epidemic(
     summary_stat=None,
     cumulative=False,
     by_age=False,
-) -> list[str]:
+) -> list[Path]:
     """
     Wrapper to run the epidemic toolbox command on a given simulation output,
     generating epidemic curves in CSV format
@@ -191,7 +190,7 @@ def epidemic(
             curves for each age group.
 
     Returns:
-        list of str: The name of the CSV files containing the generated
+        list of paths: The path to the CSV file containing the generated
             epidemic curve(s), wrapped in a list to avoid issues when
             listing the required files.
     """
@@ -228,10 +227,10 @@ def epidemic(
         "[age-separated]" if by_age else "[age-combined]",
     )
     # Log files preemptively in case of cancellation
-    filename = os.path.join(
-        SIMULATOR_LOCATION,
-        "post-analysis",
-        epidemic_filename(epidemic_args, toolbox_config),
+    filename = (
+        SIMULATOR_LOCATION
+        / "post-analysis"
+        / epidemic_filename(epidemic_args, toolbox_config)
     )
     sim.files |= {filename}
 
@@ -263,7 +262,7 @@ def asir(
     indigenous_only=False,
     pregnant_only=False,
     vaccinated_only=False,
-) -> list[str]:
+) -> list[Path]:
     """
     Wrapper to run the asir toolbox command on a given simulation output,
     generating age-separated infection rates in CSV format.
@@ -297,7 +296,7 @@ def asir(
             vaccinated people specifically.
 
     Returns:
-        list of str: The name of the CSV file containing the generated rates,
+        list of str: The path to the CSV file containing the generated rates,
             wrapped in a list to avoid issues when listing the required files.
     """
     from commands.ASIRAnalysis import AsirCommand
@@ -310,14 +309,14 @@ def asir(
     file_stem = (
         f"{community_name}{toolbox_config.middle_joint}{file_id}-asir-{summary_stat}"
     )
-    old_filename = os.path.join(SIMULATOR_LOCATION, "post-analysis", f"{file_stem}.csv")
-    new_filename = os.path.join(
-        SIMULATOR_LOCATION,
-        "post-analysis",
-        f"{file_stem}{'-proportion' if proportion else '-discrete'}"
+    old_filename = SIMULATOR_LOCATION / "post-analysis" / f"{file_stem}.csv"
+    new_filename = (
+        SIMULATOR_LOCATION
+        / "post-analysis"
+        / f"{file_stem}{'-proportion' if proportion else '-discrete'}"
         f"{'-indigenous_only' if indigenous_only else '-all_demographics'}"
         f"{'-pregnant_only' if pregnant_only else '-all_pregnancy'}"
-        f"{'-vaccinated_only' if vaccinated_only else '-all_vaccination'}.csv",
+        f"{'-vaccinated_only' if vaccinated_only else '-all_vaccination'}.csv"
     )
     sim.files |= {old_filename, new_filename}
 
